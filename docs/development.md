@@ -34,6 +34,7 @@ DevContainer（`.devcontainer/`）で開発する。
 | `type-tests/` | 公開 API の型のテスト | `pnpm run typecheck`（ソースに対して）、`pnpm run test:types`（ビルドした型定義に対して） |
 
 `test/` のテストは `dist/` を使うため、テストの実行前に一度だけビルドする（`test/global-setup.ts`）。
+例外として `src/run.test.ts` も、スキーマから本パッケージを `dist/` で読み込む（`src/` を読み込むと、vitest の外で読み込まれた同じファイルの未実行の行がカバレッジに混ざるため）。
 
 ## DB を使った動作確認
 

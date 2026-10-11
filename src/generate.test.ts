@@ -67,6 +67,7 @@ describe("generate", () => {
       outDir,
       migrationName: "update_comments",
       configPath: "drizzle.config.ts",
+      cwd: outDir,
     });
 
     // Act
@@ -74,6 +75,7 @@ describe("generate", () => {
       outDir,
       migrationName: "update_comments",
       configPath: "drizzle.config.ts",
+      cwd: outDir,
       dryRun: true,
     });
 

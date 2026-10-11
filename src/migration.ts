@@ -79,6 +79,8 @@ export type MigrationOptions = {
   name: string;
   /** Config file passed to drizzle-kit, so that it uses the same migrations folder. */
   configPath: string;
+  /** The project directory, to find drizzle-kit and run it in. */
+  cwd: string;
 };
 
 /**
@@ -86,10 +88,11 @@ export type MigrationOptions = {
  * Letting drizzle-kit create the file keeps its journal consistent.
  * Returns the path of the created migration file.
  */
-export function writeMigration(sql: string, { outDir, name, configPath }: MigrationOptions): string {
+export function writeMigration(sql: string, { outDir, name, configPath, cwd }: MigrationOptions): string {
   const before = listSqlFiles(outDir);
-  const bin = resolveDrizzleKitBin(process.cwd());
+  const bin = resolveDrizzleKitBin(cwd);
   execFileSync(process.execPath, [bin, "generate", `--config=${configPath}`, "--custom", `--name=${name}`], {
+    cwd,
     stdio: "inherit",
   });
   const created = [...listSqlFiles(outDir)].filter((f) => !before.has(f));

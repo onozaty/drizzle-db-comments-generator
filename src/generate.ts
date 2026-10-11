@@ -5,6 +5,8 @@ import { toPostgresSql } from "./postgres";
 import { buildState, type Casing, type CommentsState } from "./state";
 
 export type GenerateOptions = {
+  /** The project directory, to run drizzle-kit in. */
+  cwd: string;
   outDir: string;
   migrationName: string;
   configPath: string;
@@ -37,6 +39,7 @@ export function generate(modules: Record<string, unknown>[], options: GenerateOp
     outDir: options.outDir,
     name: options.migrationName,
     configPath: options.configPath,
+    cwd: options.cwd,
   });
   writeState(options.outDir, next);
   return { status: "generated", sql, file };
