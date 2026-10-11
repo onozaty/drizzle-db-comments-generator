@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    // Type-check against the source, so that it works without building
+    "paths": {
+      "drizzle-db-comments-generator": ["../src/index.ts"]
+    }
+  },
+  "include": ["."]
+}

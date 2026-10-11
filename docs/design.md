@@ -151,6 +151,11 @@ drizzle-kit migrate
 - **同じ回の生成の中での削除と作り直しは検出できない**
   - 状態は生成のたびに比較するため、1回の `drizzle-kit generate` の中でテーブル/カラムが作り直される（DROP と CREATE になる）と、
     コメントが変わっていなければ差分なしとなり、作り直したテーブル/カラムにコメントが付かない。
+- **対応する TypeScript は 5.0 以上**
+  - 本ライブラリの開発は TypeScript 7 で行うが、利用者には JS と型定義だけを配布するため、利用者の TypeScript は制限しない。
+  - ビルドした型定義を 5.0（moduleResolution `bundler` が使える最初のバージョン）/ 5.9 / 6.0 / 7 で型チェックして確認している（`pnpm run test:types`）。
+    ESM のプロジェクト（`bundler` / `nodenext`）と CommonJS のプロジェクト（`nodenext`、TypeScript 6 以上は `commonjs` + `bundler` も）で確認している。
+  - moduleResolution `node10`（旧 `node`）には対応しない。`exports` を解決できず、TypeScript 6 で非推奨、7 で廃止されているため。
 - **コメントは Drizzle の動作に影響しない**
   - コメントは実行時オブジェクトに保持されるだけで、クエリ生成や drizzle-kit の差分検出（スナップショット）には含まれない。
 

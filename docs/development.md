@@ -16,9 +16,10 @@ DevContainer（`.devcontainer/`）で開発する。
 | `pnpm run build` | ビルド（`dist/` に出力） |
 | `pnpm test` | テスト（ビルドした CLI とライブラリを ESM・CommonJS の一時的なプロジェクトで実行するテストを含むため、ビルドも行う） |
 | `pnpm run test:cov` | カバレッジ付きでユニットテスト |
+| `pnpm run test:types` | ビルドした型定義を、対応する各バージョンの TypeScript（5.0 / 5.9 / 6.0 / 7）で、ESM と CommonJS のプロジェクトそれぞれから型チェックする（`type-tests/`）。1 分ほどかかるため `pnpm test` とは別 |
 | `pnpm run lint` | Lint とフォーマットのチェック（Biome） |
 | `pnpm run format` | Lint の自動修正とフォーマット（Biome） |
-| `pnpm run typecheck` | 型チェック（`src/` と `example/`） |
+| `pnpm run typecheck` | 型チェック（`src/`、`example/`、`type-tests/`） |
 | `pnpm run check` | `lint` と `typecheck` をまとめて実行 |
 
 ## DB を使った動作確認

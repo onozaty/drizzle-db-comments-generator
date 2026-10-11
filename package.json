@@ -24,12 +24,13 @@
   ],
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p example",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p example && tsc --noEmit -p type-tests",
     "lint": "biome check .",
     "format": "biome check --write .",
     "check": "pnpm run lint && pnpm run typecheck",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
+    "test:types": "pnpm run build && node scripts/test-types.mjs",
     "example:generate": "pnpm run build && cd example && drizzle-kit generate && node ../dist/cli.cjs --enum",
     "example:migrate": "cd example && drizzle-kit migrate",
     "example:show": "node example/show-comments.ts",
@@ -70,6 +71,9 @@
     "pg": "^8.23.1",
     "tsdown": "^0.23.0",
     "typescript": "^7.0.2",
+    "typescript-5.0": "npm:typescript@~5.0.4",
+    "typescript-5.9": "npm:typescript@~5.9.3",
+    "typescript-6.0": "npm:typescript@~6.0.3",
     "vitest": "^5.0.3"
   },
   "dependencies": {
