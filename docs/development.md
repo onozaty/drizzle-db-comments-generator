@@ -17,10 +17,23 @@ DevContainer（`.devcontainer/`）で開発する。
 | `pnpm test` | テスト（ビルドした CLI とライブラリを ESM・CommonJS の一時的なプロジェクトで実行するテストを含むため、ビルドも行う） |
 | `pnpm run test:cov` | カバレッジ付きでユニットテスト |
 | `pnpm run test:types` | ビルドした型定義を、対応する各バージョンの TypeScript（5.0 / 5.9 / 6.0 / 7）で、ESM と CommonJS のプロジェクトそれぞれから型チェックする（`type-tests/`）。1 分ほどかかるため `pnpm test` とは別 |
+| `pnpm run test:db` | PostgreSQL を使った結合テスト（`test/*.db.test.ts`）。一時的なプロジェクトで drizzle-kit generate → CLI → drizzle-kit migrate を実行し、DB のコメントを確認する。接続先は環境変数 `TEST_DATABASE_URL`（既定は DevContainer の DB）で、テストごとに専用のデータベースを作成・削除する |
 | `pnpm run lint` | Lint とフォーマットのチェック（Biome） |
 | `pnpm run format` | Lint の自動修正とフォーマット（Biome） |
 | `pnpm run typecheck` | 型チェック（`src/`、`example/`、`type-tests/`） |
 | `pnpm run check` | `lint` と `typecheck` をまとめて実行 |
+
+## テストの構成
+
+| 場所 | 内容 | 実行 |
+|---|---|---|
+| `src/*.test.ts` | ソースを直接読み込む単体テスト | `pnpm test` |
+| `test/*.test.ts` | ビルドした CLI・ライブラリ（`dist/`）を、ESM・CommonJS の一時的なプロジェクトで実行するテスト | `pnpm test` |
+| `test/*.db.test.ts` | PostgreSQL を使った結合テスト | `pnpm run test:db` |
+| `test/helpers/` | 一時的なプロジェクトの作成など、`test/` のテストの共通処理 | - |
+| `type-tests/` | 公開 API の型のテスト | `pnpm run typecheck`（ソースに対して）、`pnpm run test:types`（ビルドした型定義に対して） |
+
+`test/` のテストは `dist/` を使うため、テストの実行前に一度だけビルドする（`test/global-setup.ts`）。
 
 ## DB を使った動作確認
 

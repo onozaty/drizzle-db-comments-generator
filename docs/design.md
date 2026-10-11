@@ -139,6 +139,16 @@ drizzle-kit migrate
 - **drizzle-orm の内部挙動に依存している**
   - ビルダーの `config` オブジェクトが、ビルド後のカラムの `config` にそのまま引き継がれる。
   - drizzle-orm のメジャーバージョンアップ（v1 など）で内部構造が変わると動かなくなる可能性がある。
+- **`.comment()` を使うファイルでは、本ライブラリを import する必要がある**
+  - `.comment()` は本ライブラリの読み込み時に `ColumnBuilder.prototype` に追加されるため、読み込まれる前にカラムを定義すると `.comment is not a function` になる。
+  - `import { pgTableWithComment } from "..."` のように値を import しても、そのファイルで値として使っていなければ（型としてだけ使う場合を含む）、
+    TypeScript の変換（tsc / tsx / esbuild など）で import 自体が削除されることがある。
+    `verbatimModuleSyntax` を有効にしている場合や、Node.js の型除去で実行する場合は削除されない。
+  - 型は `declare module` によるモジュール拡張で付くため、import が削除されても `.comment()` は型エラーにならず、実行時にだけ失敗する（気づきにくい）。
+  - import が残っていても、本ライブラリより先に評価されるファイルでは `.comment()` がまだない。
+    例えば共通のカラム定義を別ファイル（`columns.helpers.ts` など）に置き、スキーマから本ライブラリより先に import すると、そのファイルで失敗する。
+  - そのため、現状は `.comment()` を使う **すべてのファイル** で、副作用だけの import（`import "drizzle-db-comments-generator";`）を書く必要がある。
+    この制約は守られなくても気づきにくいため、`.comment()` を使わない API の追加を検討する（plan.md）。
 - **drizzle-orm は peerDependencies にする必要がある**
   - `.comment()` は `ColumnBuilder.prototype` に追加するため、利用者のプロジェクトと本ライブラリで drizzle-orm が別インスタンスになると、利用者側のビルダーに `.comment()` が生えない。
 - **CLI の動作環境**

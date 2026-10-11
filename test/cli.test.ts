@@ -4,14 +4,8 @@
  * and the library at runtime, to check that `.comment()` is added to the drizzle-orm the project uses.
  * (Inside vitest, imports are handled by vite, so unit tests cannot check these.)
  */
-import { execFileSync, spawnSync } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-
-const ROOT = path.resolve(import.meta.dirname, "..");
-const CLI = path.join(ROOT, "dist/cli.cjs");
+import { afterEach, describe, expect, it } from "vitest";
+import { createProject, type Project } from "./helpers/project";
 
 const SCHEMA = `
 import { serial, text } from "drizzle-orm/pg-core";
@@ -36,31 +30,21 @@ import { defineConfig } from "drizzle-kit";
 export default defineConfig({ dialect: "postgresql", schema: "./src/schema.ts", out: "./drizzle" });
 `;
 
-let cwd: string;
+let project: Project | undefined;
 
-beforeAll(() => {
-  execFileSync("pnpm", ["run", "build"], { cwd: ROOT, stdio: "ignore" });
-}, 60_000);
-
-beforeEach(() => {
-  cwd = fs.mkdtempSync(path.join(os.tmpdir(), "drizzle-db-comments-"));
-  // Links the packages instead of installing them
-  fs.mkdirSync(path.join(cwd, "node_modules"));
-  for (const name of ["drizzle-orm", "drizzle-kit"]) {
-    fs.symlinkSync(fs.realpathSync(path.join(ROOT, "node_modules", name)), path.join(cwd, "node_modules", name));
-  }
-  fs.symlinkSync(ROOT, path.join(cwd, "node_modules", "drizzle-db-comments-generator"));
-  fs.mkdirSync(path.join(cwd, "src"));
-  fs.writeFileSync(path.join(cwd, "src/schema.ts"), SCHEMA);
-  fs.writeFileSync(path.join(cwd, "src/enums.ts"), ENUMS);
-  fs.writeFileSync(path.join(cwd, "drizzle.config.ts"), CONFIG);
-});
+/** A project with a schema importing another file without the extension, and a config file in TypeScript. */
+const setUp = (packageJson: Record<string, unknown>): Project => {
+  project = createProject(packageJson);
+  project.write("src/schema.ts", SCHEMA);
+  project.write("src/enums.ts", ENUMS);
+  project.write("drizzle.config.ts", CONFIG);
+  return project;
+};
 
 afterEach(() => {
-  fs.rmSync(cwd, { recursive: true, force: true });
+  project?.remove();
+  project = undefined;
 });
-
-const runCli = (...args: string[]) => spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf8" });
 
 describe("cli", () => {
   it.each([
@@ -68,10 +52,10 @@ describe("cli", () => {
     { name: "a CommonJS project", packageJson: { name: "project" } },
   ])("loads the config and the schema in $name", ({ packageJson }) => {
     // Arrange
-    fs.writeFileSync(path.join(cwd, "package.json"), JSON.stringify(packageJson));
+    const project = setUp(packageJson);
 
     // Act
-    const result = runCli("--dry-run");
+    const result = project.runCli("--dry-run");
 
     // Assert
     expect(result.stderr).toBe("");
@@ -82,9 +66,9 @@ describe("cli", () => {
 
   it("names columns by the casing in the config", () => {
     // Arrange
-    fs.writeFileSync(path.join(cwd, "package.json"), JSON.stringify({ name: "project" }));
-    fs.writeFileSync(
-      path.join(cwd, "src/schema.ts"),
+    const project = setUp({ name: "project" });
+    project.write(
+      "src/schema.ts",
       `
 import { text } from "drizzle-orm/pg-core";
 import { pgTableWithComment } from "drizzle-db-comments-generator";
@@ -92,13 +76,10 @@ import { pgTableWithComment } from "drizzle-db-comments-generator";
 export const users = pgTableWithComment("users", "Users", { fullName: text().comment("Full name") });
 `,
     );
-    fs.writeFileSync(
-      path.join(cwd, "drizzle.config.ts"),
-      CONFIG.replace(`out: "./drizzle"`, `out: "./drizzle", casing: "snake_case"`),
-    );
+    project.write("drizzle.config.ts", CONFIG.replace(`out: "./drizzle"`, `out: "./drizzle", casing: "snake_case"`));
 
     // Act
-    const result = runCli("--dry-run");
+    const result = project.runCli("--dry-run");
 
     // Assert
     expect(result.stderr).toBe("");
@@ -107,10 +88,10 @@ export const users = pgTableWithComment("users", "Users", { fullName: text().com
 
   it("fails with the usage for an unknown option", () => {
     // Arrange
-    fs.writeFileSync(path.join(cwd, "package.json"), JSON.stringify({ name: "project" }));
+    const project = setUp({ name: "project" });
 
     // Act
-    const result = runCli("--schema", "src/schema.ts");
+    const result = project.runCli("--schema", "src/schema.ts");
 
     // Assert
     expect(result.status).toBe(1);
@@ -138,11 +119,11 @@ console.log(getTableConfig(users).columns[0].config.comment);
     },
   ])("adds .comment() to the drizzle-orm used in $name", ({ packageJson, app }) => {
     // Arrange
-    fs.writeFileSync(path.join(cwd, "package.json"), JSON.stringify(packageJson));
-    fs.writeFileSync(path.join(cwd, "app.js"), app);
+    const project = setUp(packageJson);
+    project.write("app.js", app);
 
     // Act
-    const result = spawnSync(process.execPath, ["app.js"], { cwd, encoding: "utf8" });
+    const result = project.runNode("app.js");
 
     // Assert
     expect(result.stderr).toBe("");
