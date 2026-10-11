@@ -131,7 +131,8 @@ drizzle-kit migrate
 | 開発は TypeScript 7 で行い、Lint / Formatter は Biome を使う | Biome は TypeScript の JS API に依存せず TypeScript 7 と併用できる。利用者には JS と型定義だけを配布するため、利用者の TypeScript のバージョンは制限しない | TypeScript 6 + ESLint（typescript-eslint）+ Prettier: typescript-eslint が TypeScript 6.0 までしか対応していない |
 | 設定ファイルとスキーマは drizzle-kit と同じく tsx の CommonJS ローダー（`tsx/cjs/api` の `register`）と `require` で読み込む | drizzle-kit と同じ読み込み方なので、drizzle-kit が読み込めるスキーマ（拡張子なしの相対 import、tsconfig の paths、`export default` / `module.exports` の設定ファイルなど）はそのまま読み込める。ES module / CommonJS どちらのプロジェクトでも、スキーマと本ライブラリが同じ drizzle-orm（CommonJS 版）を使うため `.comment()` が効く。tsx は drizzle-kit の依存でもあるため、通常は重複しない | tsx の ESM ローダーで `import`: CommonJS のプロジェクトではスキーマが CommonJS 版、本ライブラリが ESM 版の drizzle-orm を使い、`.comment()` が効かない。Node.js の型除去: 拡張子なしの相対 import を解決できない。jiti: drizzle-kit と読み込み方が異なり挙動差が出うる |
 | カラム名の `casing` 変換は drizzle-orm の `CasingCache`（`drizzle-orm/casing`）の `getColumnCasing` で行う | drizzle-orm がクエリ生成で使う公開 API で、drizzle-kit と同じ規則（名前を省略したカラムだけを変換する）。変換規則を自前で持たずに済む。drizzle-kit の結果（`drizzle-kit/api` の `generateDrizzleJson`）とテーブル名・カラム名が一致することをテストで確認している | `toSnakeCase` / `toCamelCase` を使って自前で判定する |
-| ビルドは tsdown を使い、ESM のみを出力する。対応 Node.js は 22 以上 | 型定義を出力でき、`exports` と `bin` をまとめてビルドできる。Node.js 22 以上なら CommonJS からも ESM を `require` できる | esbuild（型定義を出力できない）、tsup（後継が tsdown） |
+| ビルドは tsdown を使う。対応 Node.js は 22 以上 | 型定義を出力でき、`exports` と `bin` をまとめてビルドできる | esbuild（型定義を出力できない）、tsup（後継が tsdown） |
+| ライブラリは ESM と CommonJS の両方を出力し（`exports` の `import` / `require` で切り替え、型定義も `.d.mts` / `.d.cts`）、CLI は CommonJS で出力する | drizzle-orm は ESM 版と CommonJS 版を持ち、プロジェクトの種類によってどちらが使われるかが変わる。`.comment()` は使われる側の `ColumnBuilder` に追加する必要があり、型のモジュール拡張も同様。CLI は drizzle-kit と同じく、読み込むスキーマと同じ CommonJS 版の drizzle-orm を共有するため CommonJS にする | ESM のみ: CommonJS のプロジェクトで `.comment()` が実行時・型ともに使えない（Node.js 22 の `require(esm)` で読み込めても、追加先が ESM 版の drizzle-orm になる） |
 
 ## 5. 前提・制約
 

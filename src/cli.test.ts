@@ -1,6 +1,8 @@
 /**
- * Runs the built CLI in temporary projects, to check how config files and schemas are actually loaded with tsx.
- * (Inside vitest, imports are handled by vite instead of tsx, so unit tests cannot check this.)
+ * Runs the built package in temporary projects of both ES modules and CommonJS:
+ * the CLI, to check how config files and schemas are actually loaded with tsx,
+ * and the library at runtime, to check that `.comment()` is added to the drizzle-orm the project uses.
+ * (Inside vitest, imports are handled by vite, so unit tests cannot check these.)
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -9,7 +11,7 @@ import path from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const CLI = path.join(ROOT, "dist/cli.mjs");
+const CLI = path.join(ROOT, "dist/cli.cjs");
 
 const SCHEMA = `
 import { serial, text } from "drizzle-orm/pg-core";
@@ -114,5 +116,36 @@ export const users = pgTableWithComment("users", "Users", { fullName: text().com
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Unknown option '--schema'");
     expect(result.stderr).toContain("Usage:");
+  });
+});
+
+describe("library at runtime", () => {
+  const APP = `
+const users = pgTableWithComment("users", "Users", { name: text("name").comment("Name") });
+console.log(getTableConfig(users).columns[0].config.comment);
+`;
+
+  it.each([
+    {
+      name: "an ES module project",
+      packageJson: { name: "project", type: "module" },
+      app: `import { getTableConfig, text } from "drizzle-orm/pg-core";\nimport { pgTableWithComment } from "drizzle-db-comments-generator";\n${APP}`,
+    },
+    {
+      name: "a CommonJS project",
+      packageJson: { name: "project" },
+      app: `const { getTableConfig, text } = require("drizzle-orm/pg-core");\nconst { pgTableWithComment } = require("drizzle-db-comments-generator");\n${APP}`,
+    },
+  ])("adds .comment() to the drizzle-orm used in $name", ({ packageJson, app }) => {
+    // Arrange
+    fs.writeFileSync(path.join(cwd, "package.json"), JSON.stringify(packageJson));
+    fs.writeFileSync(path.join(cwd, "app.js"), app);
+
+    // Act
+    const result = spawnSync(process.execPath, ["app.js"], { cwd, encoding: "utf8" });
+
+    // Assert
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("Name\n");
   });
 });

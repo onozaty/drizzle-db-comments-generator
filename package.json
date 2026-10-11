@@ -5,13 +5,19 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.mts",
-      "default": "./dist/index.mjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
   "bin": {
-    "drizzle-db-comments-generator": "./dist/cli.mjs"
+    "drizzle-db-comments-generator": "./dist/cli.cjs"
   },
   "files": [
     "dist"
@@ -24,7 +30,7 @@
     "check": "pnpm run lint && pnpm run typecheck",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
-    "example:generate": "pnpm run build && cd example && drizzle-kit generate && node ../dist/cli.mjs --enum",
+    "example:generate": "pnpm run build && cd example && drizzle-kit generate && node ../dist/cli.cjs --enum",
     "example:migrate": "cd example && drizzle-kit migrate",
     "example:show": "node example/show-comments.ts",
     "example:reset": "node example/reset.ts"

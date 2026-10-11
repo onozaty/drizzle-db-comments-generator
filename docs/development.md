@@ -14,7 +14,7 @@ DevContainer（`.devcontainer/`）で開発する。
 |---|---|
 | `pnpm install` | 依存パッケージのインストール |
 | `pnpm run build` | ビルド（`dist/` に出力） |
-| `pnpm test` | テスト（ビルドした CLI を一時的なプロジェクトで実行するテストを含むため、ビルドも行う） |
+| `pnpm test` | テスト（ビルドした CLI とライブラリを ESM・CommonJS の一時的なプロジェクトで実行するテストを含むため、ビルドも行う） |
 | `pnpm run test:cov` | カバレッジ付きでユニットテスト |
 | `pnpm run lint` | Lint とフォーマットのチェック（Biome） |
 | `pnpm run format` | Lint の自動修正とフォーマット（Biome） |
