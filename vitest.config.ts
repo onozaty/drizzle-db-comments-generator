@@ -7,5 +7,10 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "test/**/*.test.ts"],
     // Integration tests with PostgreSQL run separately with vitest.db.config.ts
     exclude: ["**/*.db.test.ts"],
+    coverage: {
+      // Only the source of the package; test/ and the tests themselves are not measured
+      include: ["src/**/*.ts"],
+      exclude: ["src/**/*.test.ts"],
+    },
   },
 });
