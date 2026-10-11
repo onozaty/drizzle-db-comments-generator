@@ -1,0 +1,43 @@
+# 開発計画（初回リリースまで）
+
+初回リリースまでの作業の順序と進捗を管理する。仕様や設計判断は [design.md](design.md) に書く。
+
+- 作業が完了したら、その都度チェックを付けて更新する。
+- 初回リリース後は、残った項目を GitHub Issues に移してこのファイルは削除する。
+
+## フェーズ1: プロジェクト基盤
+
+- [ ] 開発ツールを決める（ビルドツール、Lint / Formatter）→ design.md の未決事項
+- [ ] `package.json`（`packageManager` で pnpm を固定）/ `tsconfig.json` / ビルド / vitest のセットアップ
+- [ ] プロトタイプの移植（定義 API を `exports`、CLI を `bin` に分ける）
+- [ ] DevContainer の PostgreSQL を使った動作確認手順を整える
+- [ ] `CLAUDE.md` の作成（開発コマンド、design.md / plan.md の参照、plan.md の更新ルール）
+
+## フェーズ2: 不具合修正・改善
+
+- [ ] テーブルのコメントをすべて外したときに `IS NULL` が出力されない
+- [ ] スキーマから消えたカラムに `COMMENT ON COLUMN ... IS NULL` を出力し、migrate が失敗する
+- [ ] 識別子に含まれる `"` をエスケープする
+- [ ] 設定ファイル（`--config`、既定 `drizzle.config.ts`）から `schema` / `out` を読む。`--schema` / `--out` は廃止
+- [ ] 内部で呼ぶ drizzle-kit に同じ `--config` を渡す
+- [ ] TypeScript の設定ファイル・スキーマの読み込み方法を決めて対応する
+- [ ] `public` スキーマの状態キーの扱いを決めて対応する
+- [ ] `casing` 設定でカラム名を省略した場合の名前解決を確認する
+
+## フェーズ3: テスト
+
+- [ ] 定義 API のユニットテスト（テーブル/カラムコメントの保持、型）
+- [ ] 差分生成のユニットテスト（追加・変更・削除、テーブル/カラムの消失、エスケープ、enum）
+- [ ] PostgreSQL を使った結合テスト（生成 → migrate → `col_description` / `obj_description` で確認）
+
+## フェーズ4: 対応範囲の拡大
+
+- [ ] drizzle-orm v1 への対応方針を決めて、動作確認する
+- [ ] prisma 版にあるオプションのうち、初回リリースに入れるものを決めて実装する
+
+## フェーズ5: 公開
+
+- [ ] パッケージ名の決定
+- [ ] README の作成
+- [ ] CI（型チェック、Lint、テスト）
+- [ ] npm 公開

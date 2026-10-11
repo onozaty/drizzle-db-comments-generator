@@ -1,0 +1,138 @@
+# 設計ドキュメント
+
+Drizzle ORM のスキーマに定義したテーブル/カラムコメントから、PostgreSQL の `COMMENT ON` 文を
+drizzle-kit のカスタムマイグレーションとして生成するライブラリ。
+[prisma-db-comments-generator](https://github.com/onozaty/prisma-db-comments-generator) の Drizzle 版にあたる。
+
+## 1. 背景
+
+- Drizzle（drizzle-kit 0.31 / v1）はテーブル・カラムコメントに対応していない。
+  要望 Issue: https://github.com/drizzle-team/drizzle-orm/issues/886 （長期間オープン）
+- そのため、コメントを定義する API と、差分から SQL を生成する CLI を本ライブラリで提供する。
+
+## 2. 利用イメージ
+
+```ts
+import { serial, text, pgSchema } from "drizzle-orm/pg-core";
+import { pgTableWithComment, withComment } from "drizzle-db-comments-generator"; // パッケージ名は未決
+
+export const customers = pgTableWithComment("customers", "顧客", {
+  customerId: serial("customer_id").primaryKey().comment("顧客ID"),
+  name: text("name").notNull().comment("氏名"),
+});
+
+// pgSchema / pgTableCreator の場合
+const authTable = withComment(pgSchema("auth").table);
+export const users = authTable("users", "ユーザー", { ... });
+```
+
+```bash
+drizzle-kit generate  # 通常のマイグレーション生成
+<CLI>                 # コメント用マイグレーション生成（drizzle.config.ts から schema / out を読む）
+drizzle-kit migrate
+```
+
+## 3. 仕様
+
+### 3.1 テーブルコメント API
+
+- `pgTableWithComment(name, comment, columns, extraConfig?)`
+  - 引数は `pgTable` と同じで、テーブル名の直後にコメントが入る。`columns` はオブジェクト形式・コールバック形式の両方に対応する。
+  - 戻り値の型は `pgTable` と同一（`$inferSelect` / `$inferInsert` などがそのまま使える）。
+- `withComment(tableFn)`
+  - 任意の `PgTableFn`（`pgTable` / `pgSchema("x").table` / `pgTableCreator(...)`）をコメント付き版に変換する。
+- コメントは `Symbol.for("generate-db-comments:TableComment")` をキーとしてテーブルオブジェクトに保持する。
+
+### 3.2 カラムコメント API
+
+- 全カラムビルダーに `.comment(text)` を追加する。戻り値は `this` で、前後に他のメソッドをチェーンできる。
+- コメントはビルダーの `config.comment` に保存する（ビルド後のカラムの `config` に引き継がれる）。
+
+### 3.3 CLI（コメント用マイグレーション生成）
+
+**入力**
+
+| オプション | 既定値 | 説明 |
+|---|---|---|
+| `--config <file>` | `drizzle.config.ts` | drizzle-kit の設定ファイル |
+| `--name <name>` | `update_comments` | マイグレーション名 |
+| `--enum` | なし | enum カラムのコメントに `enum: 名前(値, ...)` を追記する |
+| `--dry-run` | なし | SQL を表示するだけでファイルを作らない |
+
+**設定**
+
+- drizzle-kit と同じく、設定ファイルからスキーマの場所（`schema`）と出力先（`out`）を求める。
+  - `schema` は drizzle-kit と同じ形式（ファイル、ディレクトリ、glob、それらの配列）に対応する。
+  - `out` を省略した場合は drizzle-kit と同じ `drizzle` とする。
+  - `dialect` が `postgresql` 以外の場合はエラーにする。
+- 内部で呼ぶ `drizzle-kit generate --custom` にも同じ `--config` を渡す。
+  スキーマの場所と出力先を drizzle-kit と食い違わせないため、`--schema` / `--out` で個別に指定するオプションは設けない。
+
+**状態管理**
+
+- 前回生成時の状態を `<out>/comments-latest.json` に保存し、次回はその状態との差分だけを出力する。
+- 状態のキーはテーブルの完全修飾名（`"schema"."table"`、スキーマ省略時は `"table"`）。
+
+**差分のルール**
+
+| ケース | 出力 |
+|---|---|
+| コメントの追加・変更 | `COMMENT ON ... IS '<コメント>'` |
+| コメントの削除（テーブル/カラムはスキーマに残っている） | `COMMENT ON ... IS NULL` |
+| テーブル/カラム自体がスキーマから消えた | 何もしない（DDL の削除でコメントも消えるため） |
+
+- テーブルのコメントをすべて外しても、テーブルがスキーマに残っていれば `IS NULL` を出力する。
+  そのため、コメントの有無ではなく **スキーマ上の存在** を基準に比較する。
+- 消えたカラムに `COMMENT ON COLUMN ... IS NULL` を出すと、カラムが存在せず migrate が失敗する。カラムもテーブルと同様に存在を基準にする。
+
+**出力**
+
+- 変更がなければファイルを作らない。
+- `drizzle-kit generate --custom --name=<name>` で空のマイグレーションを作らせ、そこへ SQL を書き込む（journal が正しく更新される）。
+- 文の区切りに `--> statement-breakpoint` を入れる。
+- 文字列リテラルの `'` は `''` に、識別子の `"` は `""` にエスケープする。
+- 必ず通常の `drizzle-kit generate` の後に実行する（DDL より後にコメントを適用するため）。
+
+## 4. 設計判断と理由
+
+| 決定 | 理由 | 却下した案 |
+|---|---|---|
+| テーブルコメントは `pgTable` をラップする関数で指定する | ラップなら戻り値の型を `pgTable` と同一にでき、カラム名との衝突もない | `PgTable.prototype.comment()` を追加する案: `comment` という名前のカラムを持つテーブルで、カラムがメソッドを上書きして実行時エラーになる |
+| カラムコメントは `ColumnBuilder.prototype` を拡張する（`declare module "drizzle-orm/column-builder"` で型拡張） | カラム関数は種類が多く、すべてをラップするのは現実的でない | カラム関数ごとのラップ |
+| コメントは明示的な API で定義する | 確実に取得でき、ビルドや実行環境に依存しない | JSDoc（`/** */`）を TypeScript Compiler API で解析する案: 解析が不確実なうえ、TypeScript 7 は Go 実装で JS の Compiler API がない |
+| 差分は状態ファイル（`comments-latest.json`）で管理する | prisma 版と同じ方式。DB に接続せずに差分を出せる | DB から現在のコメントを読み取る案 |
+| 出力は drizzle-kit のカスタムマイグレーションに書き込む | drizzle-kit の journal と整合し、`drizzle-kit migrate` でそのまま適用できる | 独自のマイグレーション管理 |
+| テーブルコメントのキーに `Symbol.for` を使う | 定義 API と CLI でモジュールのインスタンスが別になってもキーが一致する | モジュールローカルの `Symbol()` |
+
+## 5. 前提・制約
+
+- **drizzle-orm の内部挙動に依存している**
+  - ビルダーの `config` オブジェクトが、ビルド後のカラムの `config` にそのまま引き継がれる。
+  - drizzle-orm のメジャーバージョンアップ（v1 など）で内部構造が変わると動かなくなる可能性がある。
+- **drizzle-orm は peerDependencies にする必要がある**
+  - `.comment()` は `ColumnBuilder.prototype` に追加するため、利用者のプロジェクトと本ライブラリで drizzle-orm が別インスタンスになると、利用者側のビルダーに `.comment()` が生えない。
+- **コメントは Drizzle の動作に影響しない**
+  - コメントは実行時オブジェクトに保持されるだけで、クエリ生成や drizzle-kit の差分検出（スナップショット）には含まれない。
+
+## 6. 動作確認状況
+
+プロトタイプ（PostgreSQL 16、drizzle-orm 0.45.4、drizzle-kit 0.31.11）で、手動で以下を確認済み。
+
+- 初回の全件出力と、migrate による DB への反映（`col_description` / `obj_description` で確認）
+- コメントの変更・追加・削除時に差分のみ出力されること、変更がなければファイルを作らないこと
+- 複数行コメント、`'` のエスケープ、enum 情報の追記
+- `.comment()` / `pgTableWithComment` を使っても `drizzle-kit generate` が「変更なし」になること
+- コールバック形式のカラム定義、第3引数（index）、`comment` という名前のカラム、`pgSchema("auth")`
+- 型チェック: TS 5.9 / TS 7.0 × moduleResolution `bundler` / `nodenext`。`$inferSelect` / `$inferInsert`、notNull の維持、`.comment()` 前後のメソッドチェーン
+
+## 7. 未決事項
+
+- **パッケージ名**: 第一候補は `drizzle-db-comments-generator`（prisma 版と揃える）。
+  他の候補は `drizzle-db-comments`、`@onozaty/drizzle-db-comments-generator`。
+  `drizzle-comments` は v1 の SQLcommenter と紛らわしいので避ける。
+- **drizzle-orm v1 への対応方針**: v1 は rc（1.0.0-rc.4）まで進んでいる。0.x と v1 のどちらを対象にするか、両対応にするか。
+- **TypeScript ファイルの読み込み方法**: CLI は設定ファイルとスキーマ（いずれも TypeScript）を実行時に import する必要がある。
+  利用者に tsx などでの実行を求めるか、jiti などのローダーを内蔵するか。drizzle-kit 自身の読み込み方法も確認する。
+- **`public` スキーマの扱い**: `pgSchema("public")` で定義した場合と、スキーマを省略した場合で状態のキーを揃えるか。
+- **開発ツール**: ビルドツール（tsdown / tsup など）、Lint / Formatter。
+- **対応範囲**: MySQL 対応、prisma 版にあるオプション（`targets`, `ignorePattern`, `ignoreCommentPattern`, `commentRemovePattern`, `commentTransformScript`, enum の detailed 形式）をどこまで入れるか。
