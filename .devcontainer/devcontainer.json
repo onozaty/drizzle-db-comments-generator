@@ -4,6 +4,10 @@
   "service": "app",
   "remoteUser": "node",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [5050],
+  "portsAttributes": {
+    "5050": { "label": "pgAdmin" }
+  },
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}

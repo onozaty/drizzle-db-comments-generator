@@ -6,6 +6,7 @@ DevContainer（`.devcontainer/`）で開発する。
 
 - Node.js 24、pnpm（バージョンは `package.json` の `packageManager` で固定。corepack が自動で用意する）
 - PostgreSQL 18（`localhost:5432`、ユーザー `db_user` / パスワード `db_password` / DB `sample`）
+- pgAdmin（VS Code の「ポート」タブで、ラベル `pgAdmin`（5050）の転送先アドレスをブラウザで開く。サーバー `sample` は登録済みで、初回接続時にパスワード `db_password` を入力する）
 
 ## コマンド
 

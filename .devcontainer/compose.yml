@@ -20,7 +20,24 @@ services:
       POSTGRES_DB: sample
     network_mode: service:app
 
+  pgadmin:
+    image: dpage/pgadmin4:9
+    restart: unless-stopped
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user@example.com
+      PGADMIN_DEFAULT_PASSWORD: password
+      # Desktop mode: no login to pgAdmin itself
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_LISTEN_PORT: 5050
+    # Shares the network with app, so PostgreSQL is reachable at localhost and the port is forwarded by forwardPorts
+    network_mode: service:app
+
 volumes:
   claude-config:
   gh-config:
   postgres-data:
+  pgadmin-data:
