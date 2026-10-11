@@ -17,4 +17,4 @@ drizzle-kit のカスタムマイグレーションとして生成するライ�
 - **design.md を更新する**: 仕様や設計判断を変えたら design.md に反映する。未決事項が決まったら、仕様・設計判断に移して未決事項から外す。
 - **コミット前に確認する**: `pnpm run check` と `pnpm test` が通ること。CLI や生成 SQL に関わる変更は、docs/development.md の手順で DB への反映も確認する。
 - **公開 API を意識する**: `src/index.ts` から export するものが公開 API になる。追加・変更する場合は design.md の仕様と合わせる。
-- **drizzle-orm の内部挙動に依存している箇所**（ビルダーの `config.comment` へのコメントの保存）は `src/comment.ts` に集める。
+- **drizzle-orm の内部挙動に依存している箇所**（ビルダーの `config` へのコメントの保存）は `src/comment.ts` に集める。

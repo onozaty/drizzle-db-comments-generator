@@ -133,9 +133,11 @@ export const users = pgTable("users", { id: serial("id"), ...timestamps });
 });
 
 describe("library at runtime", () => {
+  // Reads the comments with the keys the CLI uses, since the package has no public API to read them
   const APP = `
 const users = withComment(pgTable("users", { name: withComment(text("name"), "Name") }), "Users");
-console.log(getTableConfig(users).columns[0].config.comment);
+console.log(users[Symbol.for("drizzle-db-comments-generator:TableComment")]);
+console.log(getTableConfig(users).columns[0].config[Symbol.for("drizzle-db-comments-generator:ColumnComment")]);
 `;
 
   it.each([
@@ -159,6 +161,6 @@ console.log(getTableConfig(users).columns[0].config.comment);
 
     // Assert
     expect(result.stderr).toBe("");
-    expect(result.stdout).toBe("Name\n");
+    expect(result.stdout).toBe("Users\nName\n");
   });
 });

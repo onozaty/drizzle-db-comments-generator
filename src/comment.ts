@@ -15,8 +15,10 @@
  */
 import { type Column, ColumnBuilder, type ColumnBuilderBase, is, Table } from "drizzle-orm";
 
-// Symbol.for so that the key matches even if this module is loaded more than once (ES modules and CommonJS)
+// Symbols so that the keys never collide with columns of tables or with properties drizzle-orm may add to column configs.
+// Symbol.for so that the keys match even if this module is loaded more than once (ES modules and CommonJS).
 const TableComment = Symbol.for("drizzle-db-comments-generator:TableComment");
+const ColumnComment = Symbol.for("drizzle-db-comments-generator:ColumnComment");
 
 /**
  * Sets the database comment of a table or a column definition, and returns it as is.
@@ -34,14 +36,14 @@ export function withComment(target: unknown, comment: string): unknown {
   }
   if (is(target, ColumnBuilder)) {
     // drizzle-orm passes the config object of the builder as is to the built column
-    (target as unknown as { config: Record<string, unknown> }).config.comment = comment;
+    (target as unknown as { config: Record<symbol, unknown> }).config[ColumnComment] = comment;
     return target;
   }
   throw new TypeError('withComment() takes a table or a column definition such as text("name")');
 }
 
 export function getColumnComment(column: Column): string | undefined {
-  return (column as unknown as { config: { comment?: string } }).config.comment;
+  return (column as unknown as { config: Record<symbol, string | undefined> }).config[ColumnComment];
 }
 
 export function getTableComment(table: Table): string | undefined {

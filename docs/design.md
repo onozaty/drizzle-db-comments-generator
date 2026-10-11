@@ -54,7 +54,8 @@ drizzle-kit migrate
   - テーブルでもカラムの定義でもないものを渡すと、型エラー・実行時エラー（`TypeError`）になる。
 - コメントは渡されたオブジェクトに直接書き込む。
   - テーブル: `Symbol.for("drizzle-db-comments-generator:TableComment")` をキーとしてテーブルオブジェクトに保持する。
-  - カラム: ビルダーの `config.comment` に保存する（ビルド後のカラムの `config` に引き継がれる）。
+  - カラム: `Symbol.for("drizzle-db-comments-generator:ColumnComment")` をキーとしてビルダーの `config` に保存する（`config` はビルド後のカラムにそのまま引き継がれる）。
+  - どちらも Symbol をキーにする。テーブルではカラム名（利用者が付けたプロパティ名）と、カラムの `config` では drizzle-orm が将来追加しうるプロパティ（`comment` など）と衝突しないようにするため。
   - そのため、複数のテーブルで使い回しているカラム定義を包むと、そのカラムを使うすべてのテーブルでコメントが変わる。
 
 ### 3.2 CLI（コメント用マイグレーション生成）
