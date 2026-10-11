@@ -1,14 +1,37 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import type { CommentsState } from "./state";
+import { type CommentsState, emptyState, STATE_VERSION } from "./state";
 
 const STATE_FILE = "comments-latest.json";
 
 /** Reads the state saved by the previous generation, or an empty state if there is none. */
 export function readState(outDir: string): CommentsState {
   const statePath = path.join(outDir, STATE_FILE);
-  return fs.existsSync(statePath) ? JSON.parse(fs.readFileSync(statePath, "utf8")) : {};
+  if (!fs.existsSync(statePath)) return emptyState();
+  const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  if (state?.version !== STATE_VERSION) {
+    throw new Error(`Unsupported format of ${statePath} (version: ${state?.version}, expected: ${STATE_VERSION})`);
+  }
+  if (!isValidTables(state.tables)) {
+    throw new Error(`Invalid content of ${statePath}. Fix or delete the file.`);
+  }
+  return state;
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+function isValidTables(tables: unknown): boolean {
+  return (
+    isObject(tables) &&
+    Object.values(tables).every((t) => isObject(t) && typeof t.table === "string" && isObject(t.columns))
+  );
+}
+
+/** Saves the state for the next generation. */
+export function writeState(outDir: string, state: CommentsState): void {
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, STATE_FILE), `${JSON.stringify(state, null, 2)}\n`);
 }
 
 function listSqlFiles(dir: string): Set<string> {
@@ -21,11 +44,11 @@ function listSqlFiles(dir: string): Set<string> {
 }
 
 /**
- * Writes the SQL into a custom migration created by drizzle-kit, and saves the state.
+ * Writes the SQL into a custom migration created by drizzle-kit.
  * Letting drizzle-kit create the file keeps its journal consistent.
  * Returns the path of the created migration file.
  */
-export function writeMigration(outDir: string, name: string, sql: string, state: CommentsState): string {
+export function writeMigration(outDir: string, name: string, sql: string): string {
   const before = listSqlFiles(outDir);
   execFileSync("npx", ["drizzle-kit", "generate", "--custom", `--name=${name}`], { stdio: "inherit" });
   const created = [...listSqlFiles(outDir)].filter((f) => !before.has(f));
@@ -33,6 +56,5 @@ export function writeMigration(outDir: string, name: string, sql: string, state:
     throw new Error(`Could not identify the generated migration file: ${created.join(", ")}`);
   }
   fs.writeFileSync(created[0], sql);
-  fs.writeFileSync(path.join(outDir, STATE_FILE), `${JSON.stringify(state, null, 2)}\n`);
   return created[0];
 }

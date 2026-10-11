@@ -8,17 +8,46 @@ describe("buildState", () => {
     // Arrange
     const users = pgTableWithComment("users", "Users", {
       id: serial("id").primaryKey().comment("User ID"),
-      name: text("name"),
     });
 
     // Act
     const state = buildState([{ users }]);
 
     // Assert
-    expect(state).toEqual({ '"users"': { table: "Users", columns: { id: "User ID" } } });
+    expect(state).toEqual({
+      version: 1,
+      tables: { users: { schema: undefined, table: "users", comment: "Users", columns: { id: "User ID" } } },
+    });
   });
 
-  it("uses the schema-qualified name as the key for tables in a schema", () => {
+  it("keeps tables and columns without comments as null", () => {
+    // Arrange
+    const users = pgTable("users", { id: serial("id"), name: text("name") });
+
+    // Act
+    const state = buildState([{ users }]);
+
+    // Assert
+    expect(state.tables.users).toEqual({
+      schema: undefined,
+      table: "users",
+      comment: null,
+      columns: { id: null, name: null },
+    });
+  });
+
+  it("treats an empty comment as no comment", () => {
+    // Arrange
+    const users = pgTableWithComment("users", "", { id: serial("id").comment("") });
+
+    // Act
+    const state = buildState([{ users }]);
+
+    // Assert
+    expect(state.tables.users).toMatchObject({ comment: null, columns: { id: null } });
+  });
+
+  it("keys tables in a schema by schema.table and keeps the schema", () => {
     // Arrange
     const users = withComment(pgSchema("auth").table)("users", "Users", { id: serial("id") });
 
@@ -26,42 +55,70 @@ describe("buildState", () => {
     const state = buildState([{ users }]);
 
     // Assert
-    expect(Object.keys(state)).toEqual(['"auth"."users"']);
+    expect(state.tables["auth.users"]).toMatchObject({ schema: "auth", table: "users" });
+  });
+
+  it("collects a table exported more than once only once", () => {
+    // Arrange
+    const users = pgTable("users", { id: serial("id") });
+
+    // Act
+    const state = buildState([{ users, alias: users }, { users }]);
+
+    // Assert
+    expect(Object.keys(state.tables)).toEqual(["users"]);
+  });
+
+  it("throws an error when different tables map to the same key", () => {
+    // Arrange
+    const dotted = pgTable("auth.users", { id: serial("id") });
+    const inSchema = pgSchema("auth").table("users", { id: serial("id") });
+
+    // Act & Assert
+    expect(() => buildState([{ dotted, inSchema }])).toThrow(`Multiple tables map to the same name "auth.users"`);
+  });
+
+  it("keeps tables and columns with names of Object properties", () => {
+    // Arrange
+    const table = pgTable("__proto__", { constructor: text("constructor"), proto: text("__proto__").comment("Proto") });
+
+    // Act
+    const state = buildState([{ table }]);
+
+    // Assert
+    expect(Object.entries(state.tables).map(([key, t]) => [key, Object.entries(t.columns)])).toEqual([
+      [
+        "__proto__",
+        [
+          ["constructor", null],
+          ["__proto__", "Proto"],
+        ],
+      ],
+    ]);
   });
 
   it("collects tables from multiple modules", () => {
     // Arrange
-    const users = pgTableWithComment("users", "Users", { id: serial("id") });
-    const posts = pgTableWithComment("posts", "Posts", { id: serial("id") });
+    const users = pgTable("users", { id: serial("id") });
+    const posts = pgTable("posts", { id: serial("id") });
 
     // Act
     const state = buildState([{ users }, { posts }]);
 
     // Assert
-    expect(Object.keys(state)).toEqual(['"users"', '"posts"']);
+    expect(Object.keys(state.tables)).toEqual(["users", "posts"]);
   });
 
   it("ignores exports other than tables", () => {
     // Arrange
-    const users = pgTableWithComment("users", "Users", { id: serial("id") });
+    const users = pgTable("users", { id: serial("id") });
     const status = pgEnum("status", ["A", "B"]);
 
     // Act
     const state = buildState([{ users, status, helper: () => 1, value: 1 }]);
 
     // Assert
-    expect(Object.keys(state)).toEqual(['"users"']);
-  });
-
-  it("omits tables without any comments", () => {
-    // Arrange
-    const users = pgTable("users", { id: serial("id") });
-
-    // Act
-    const state = buildState([{ users }]);
-
-    // Assert
-    expect(state).toEqual({});
+    expect(Object.keys(state.tables)).toEqual(["users"]);
   });
 
   describe("includeEnum", () => {
@@ -87,7 +144,7 @@ describe("buildState", () => {
       const state = buildState([{ users }], { includeEnum: true });
 
       // Assert
-      expect(state['"users"']?.columns.status).toBe(expected);
+      expect(state.tables.users?.columns.status).toBe(expected);
     });
 
     it("does not append the enum values when disabled", () => {
@@ -98,7 +155,7 @@ describe("buildState", () => {
       const state = buildState([{ users }]);
 
       // Assert
-      expect(state['"users"']?.columns.status).toBe("Status");
+      expect(state.tables.users?.columns.status).toBe("Status");
     });
   });
 });

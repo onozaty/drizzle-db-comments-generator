@@ -1,0 +1,40 @@
+import { isDeepStrictEqual } from "node:util";
+import { diff } from "./diff";
+import { readState, writeMigration, writeState } from "./migration";
+import { toPostgresSql } from "./postgres";
+import { buildState, type CommentsState } from "./state";
+
+export type GenerateOptions = {
+  outDir: string;
+  migrationName: string;
+  includeEnum?: boolean;
+  dryRun?: boolean;
+};
+
+export type GenerateResult =
+  | { status: "no-changes"; stateUpdated: boolean }
+  | { status: "dry-run"; sql: string }
+  | { status: "generated"; sql: string; file: string };
+
+/** Generates a comment migration from the schema modules, based on the state saved by the previous generation. */
+export function generate(modules: Record<string, unknown>[], options: GenerateOptions): GenerateResult {
+  const prev = readState(options.outDir);
+  const next = buildState(modules, { includeEnum: options.includeEnum });
+  const changes = diff(prev, next);
+  if (changes.length === 0) {
+    // Dropped tables/columns need no statements, but must be recorded so that re-adding them is detected as a change
+    const stateUpdated = !options.dryRun && !isDeepStrictEqual(toPlain(prev), toPlain(next));
+    if (stateUpdated) writeState(options.outDir, next);
+    return { status: "no-changes", stateUpdated };
+  }
+
+  const sql = toPostgresSql(changes);
+  if (options.dryRun) return { status: "dry-run", sql };
+
+  const file = writeMigration(options.outDir, options.migrationName, sql);
+  writeState(options.outDir, next);
+  return { status: "generated", sql, file };
+}
+
+// Compares the states as saved in JSON (ignores undefined properties and prototypes)
+const toPlain = (state: CommentsState): unknown => JSON.parse(JSON.stringify(state));
