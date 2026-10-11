@@ -10,15 +10,7 @@
  * Comments are only kept on runtime objects and do not affect Drizzle itself
  * (query building or drizzle-kit's diff detection).
  */
-import {
-  type BuildColumns,
-  type BuildExtraConfigColumns,
-  type Column,
-  ColumnBuilder,
-  type ColumnBuilderBaseConfig,
-  type ColumnBuilderExtraConfig,
-  type ColumnDataType,
-} from "drizzle-orm";
+import { type BuildColumns, type BuildExtraConfigColumns, type Column, ColumnBuilder } from "drizzle-orm";
 import {
   type PgColumnBuilderBase,
   type PgTable,
@@ -94,6 +86,7 @@ export const pgTableWithComment = withComment(pgTable);
 // =====================================================================
 
 declare module "drizzle-orm/column-builder" {
+  // Repeats the type parameters of ColumnBuilder so that the declarations merge reliably, even though they are unused here
   interface ColumnBuilder<
     T extends ColumnBuilderBaseConfig<ColumnDataType, string> = ColumnBuilderBaseConfig<ColumnDataType, string>,
     TRuntimeConfig extends object = object,
