@@ -101,8 +101,7 @@ let registered = false;
 /**
  * Loads a config file or a schema module in the same way as drizzle-kit: `require` with the CommonJS loader of tsx.
  * This way, any schema drizzle-kit can load (extensionless imports, tsconfig paths, ...) can be loaded here too,
- * and the schema and this library share the same drizzle-orm (the CommonJS one) in both ES module and CommonJS projects,
- * so that `.comment()` added to its ColumnBuilder works.
+ * and the schemas and this CLI share the same drizzle-orm (the CommonJS one) in both ES module and CommonJS projects.
  */
 export function loadModule(file: string): Record<string, unknown> {
   if (!registered) {

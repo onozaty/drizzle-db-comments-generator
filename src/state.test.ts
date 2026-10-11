@@ -1,14 +1,17 @@
 import { pgEnum, pgSchema, pgTable, serial, text } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { pgTableWithComment, withComment } from "./comment";
+import { withComment } from "./comment";
 import { buildState } from "./state";
 
 describe("buildState", () => {
   it("collects table and column comments", () => {
     // Arrange
-    const users = pgTableWithComment("users", "Users", {
-      id: serial("id").primaryKey().comment("User ID"),
-    });
+    const users = withComment(
+      pgTable("users", {
+        id: withComment(serial("id").primaryKey(), "User ID"),
+      }),
+      "Users",
+    );
 
     // Act
     const state = buildState([{ users }]);
@@ -38,7 +41,7 @@ describe("buildState", () => {
 
   it("treats an empty comment as no comment", () => {
     // Arrange
-    const users = pgTableWithComment("users", "", { id: serial("id").comment("") });
+    const users = withComment(pgTable("users", { id: withComment(serial("id"), "") }), "");
 
     // Act
     const state = buildState([{ users }]);
@@ -49,7 +52,7 @@ describe("buildState", () => {
 
   it("keys tables in a schema by schema.table and keeps the schema", () => {
     // Arrange
-    const users = withComment(pgSchema("auth").table)("users", "Users", { id: serial("id") });
+    const users = withComment(pgSchema("auth").table("users", { id: serial("id") }), "Users");
 
     // Act
     const state = buildState([{ users }]);
@@ -80,7 +83,10 @@ describe("buildState", () => {
 
   it("keeps tables and columns with names of Object properties", () => {
     // Arrange
-    const table = pgTable("__proto__", { constructor: text("constructor"), proto: text("__proto__").comment("Proto") });
+    const table = pgTable("__proto__", {
+      constructor: text("constructor"),
+      proto: withComment(text("__proto__"), "Proto"),
+    });
 
     // Act
     const state = buildState([{ table }]);
@@ -154,7 +160,7 @@ describe("buildState", () => {
     ])("$name", ({ comment, expected }) => {
       // Arrange
       const column = status("status");
-      const users = pgTable("users", { status: comment ? column.comment(comment) : column });
+      const users = pgTable("users", { status: comment ? withComment(column, comment) : column });
 
       // Act
       const state = buildState([{ users }], { includeEnum: true });
@@ -165,7 +171,7 @@ describe("buildState", () => {
 
     it("does not append the enum values when disabled", () => {
       // Arrange
-      const users = pgTable("users", { status: status("status").comment("Status") });
+      const users = pgTable("users", { status: withComment(status("status"), "Status") });
 
       // Act
       const state = buildState([{ users }]);

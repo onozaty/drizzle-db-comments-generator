@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { pgTable, serial, text } from "drizzle-orm/pg-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { pgTableWithComment } from "./comment";
+import { withComment } from "./comment";
 import { diff } from "./diff";
 import { generate as generateMigration } from "./generate";
 import { toPostgresSql } from "./postgres";
@@ -18,7 +18,7 @@ const generate = (before: Record<string, unknown>, after: Record<string, unknown
 describe("generating comment migrations from schema changes", () => {
   it("sets comments to NULL when all comments of an existing table are removed", () => {
     // Arrange
-    const before = pgTableWithComment("users", "Users", { id: serial("id").comment("User ID") });
+    const before = withComment(pgTable("users", { id: withComment(serial("id"), "User ID") }), "Users");
     const after = pgTable("users", { id: serial("id") });
 
     // Act
@@ -31,8 +31,11 @@ describe("generating comment migrations from schema changes", () => {
 
   it("does not touch the comment of a dropped column", () => {
     // Arrange
-    const before = pgTable("users", { id: serial("id").comment("User ID"), name: text("name").comment("Name") });
-    const after = pgTable("users", { id: serial("id").comment("User ID") });
+    const before = pgTable("users", {
+      id: withComment(serial("id"), "User ID"),
+      name: withComment(text("name"), "Name"),
+    });
+    const after = pgTable("users", { id: withComment(serial("id"), "User ID") });
 
     // Act
     const sql = generate({ users: before }, { users: after });
@@ -55,7 +58,7 @@ describe("generate", () => {
 
   it("sets the comment again on a column re-added after being dropped", () => {
     // Arrange
-    const withName = pgTable("users", { id: serial("id"), name: text("name").comment("Name") });
+    const withName = pgTable("users", { id: serial("id"), name: withComment(text("name"), "Name") });
     const withoutName = pgTable("users", { id: serial("id") });
     const saved = buildState([{ users: withName }]);
     fs.writeFileSync(path.join(outDir, "comments-latest.json"), JSON.stringify(saved));

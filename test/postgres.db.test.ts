@@ -66,9 +66,7 @@ export default defineConfig({
 `,
   );
 
-// The side-effect import adds .comment() even when the named imports are unused and removed by the compiler
-const IMPORTS = `import "drizzle-db-comments-generator";
-import { pgTableWithComment, withComment } from "drizzle-db-comments-generator";
+const IMPORTS = `import { withComment } from "drizzle-db-comments-generator";
 import { integer, pgEnum, pgSchema, pgTable, serial, text } from "drizzle-orm/pg-core";
 `;
 
@@ -115,16 +113,16 @@ describe("comments in PostgreSQL", () => {
     writeConfig();
     const schema = `
 export const status = pgEnum("status", ["ACTIVE", "INACTIVE"]);
-export const users = pgTableWithComment("users", "Users", {
-  id: serial("id").primaryKey().comment("User ID"),
-  bio: text("bio").comment("Line 1\\nLine 2 with 'quotes'"),
-  status: status("status").comment("Status"),
+export const users = withComment(pgTable("users", {
+  id: withComment(serial("id").primaryKey(), "User ID"),
+  bio: withComment(text("bio"), "Line 1\\nLine 2 with 'quotes'"),
+  status: withComment(status("status"), "Status"),
   age: integer("age"),
-});
+}), "Users");
 export const auth = pgSchema("auth");
-export const sessions = withComment(auth.table)("sessions", "Sessions", {
-  token: text("token").comment("Token"),
-});
+export const sessions = withComment(auth.table("sessions", {
+  token: withComment(text("token"), "Token"),
+}), "Sessions");
 `;
 
     // Act
@@ -146,19 +144,19 @@ export const sessions = withComment(auth.table)("sessions", "Sessions", {
     // Arrange
     writeConfig();
     apply(`
-export const users = pgTableWithComment("users", "Users", {
-  id: serial("id").primaryKey().comment("User ID"),
-  name: text("name").comment("Name"),
-});
-export const posts = pgTableWithComment("posts", "Posts", { id: serial("id").primaryKey().comment("Post ID") });
+export const users = withComment(pgTable("users", {
+  id: withComment(serial("id").primaryKey(), "User ID"),
+  name: withComment(text("name"), "Name"),
+}), "Users");
+export const posts = withComment(pgTable("posts", { id: withComment(serial("id").primaryKey(), "Post ID") }), "Posts");
 `);
 
     // Act
     apply(`
-export const users = pgTableWithComment("users", "User accounts", {
-  id: serial("id").primaryKey().comment("User ID"),
+export const users = withComment(pgTable("users", {
+  id: withComment(serial("id").primaryKey(), "User ID"),
   name: text("name"),
-});
+}), "User accounts");
 export const posts = pgTable("posts", { id: serial("id").primaryKey() });
 `);
 
@@ -176,7 +174,7 @@ export const posts = pgTable("posts", { id: serial("id").primaryKey() });
     // Arrange
     writeConfig();
     const withName = `
-export const users = pgTable("users", { id: serial("id").primaryKey(), name: text("name").comment("Name") });
+export const users = pgTable("users", { id: serial("id").primaryKey(), name: withComment(text("name"), "Name") });
 `;
     apply(withName);
     apply(`
@@ -194,10 +192,10 @@ export const users = pgTable("users", { id: serial("id").primaryKey() });
     // Arrange
     writeConfig(`casing: "snake_case",`);
     const schema = `
-export const userAccounts = pgTableWithComment("user_accounts", "User accounts", {
-  accountId: serial().primaryKey().comment("Account ID"),
-  displayName: text().comment("Display name"),
-});
+export const userAccounts = withComment(pgTable("user_accounts", {
+  accountId: withComment(serial().primaryKey(), "Account ID"),
+  displayName: withComment(text(), "Display name"),
+}), "User accounts");
 `;
 
     // Act
@@ -216,10 +214,10 @@ export const userAccounts = pgTableWithComment("user_accounts", "User accounts",
     writeConfig();
     const schema = `
 export const sales = pgSchema("Sales");
-export const orders = withComment(sales.table)("Order Items", "Order items", {
-  itemId: serial("ItemId").primaryKey().comment("Item ID"),
-  unitPrice: integer("Unit Price").comment("Unit price"),
-});
+export const orders = withComment(sales.table("Order Items", {
+  itemId: withComment(serial("ItemId").primaryKey(), "Item ID"),
+  unitPrice: withComment(integer("Unit Price"), "Unit price"),
+}), "Order items");
 `;
 
     // Act
@@ -237,13 +235,13 @@ export const orders = withComment(sales.table)("Order Items", "Order items", {
     // Arrange
     writeConfig();
     apply(`
-export const users = pgTableWithComment("users", "Users", { id: serial("id").primaryKey().comment("User ID") });
-export const posts = pgTableWithComment("posts", "Posts", { id: serial("id").primaryKey().comment("Post ID") });
+export const users = withComment(pgTable("users", { id: withComment(serial("id").primaryKey(), "User ID") }), "Users");
+export const posts = withComment(pgTable("posts", { id: withComment(serial("id").primaryKey(), "Post ID") }), "Posts");
 `);
 
     // Act
     apply(`
-export const users = pgTableWithComment("users", "Users", { id: serial("id").primaryKey().comment("User ID") });
+export const users = withComment(pgTable("users", { id: withComment(serial("id").primaryKey(), "User ID") }), "Users");
 `);
 
     // Assert
@@ -255,7 +253,7 @@ export const users = pgTableWithComment("users", "Users", { id: serial("id").pri
     writeConfig();
     const schema = (values: string) => `
 export const status = pgEnum("status", [${values}]);
-export const users = pgTable("users", { status: status("status").comment("Status") });
+export const users = pgTable("users", { status: withComment(status("status"), "Status") });
 `;
     apply(schema(`"ACTIVE"`), "--enum");
 
@@ -271,19 +269,19 @@ export const users = pgTable("users", { status: status("status").comment("Status
     writeConfig();
     apply(`
 export const auth = pgSchema("auth");
-export const sessions = withComment(auth.table)("sessions", "Sessions", {
-  token: text("token").comment("Token"),
-  userAgent: text("user_agent").comment("User agent"),
-});
+export const sessions = withComment(auth.table("sessions", {
+  token: withComment(text("token"), "Token"),
+  userAgent: withComment(text("user_agent"), "User agent"),
+}), "Sessions");
 `);
 
     // Act
     apply(`
 export const auth = pgSchema("auth");
-export const sessions = withComment(auth.table)("sessions", "Login sessions", {
+export const sessions = withComment(auth.table("sessions", {
   token: text("token"),
-  userAgent: text("user_agent").comment("User agent"),
-});
+  userAgent: withComment(text("user_agent"), "User agent"),
+}), "Login sessions");
 `);
 
     // Assert

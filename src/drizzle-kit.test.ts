@@ -5,7 +5,7 @@
 import { generateDrizzleJson } from "drizzle-kit/api";
 import { integer, pgEnum, pgSchema, pgTable, pgTableCreator, serial, text } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { pgTableWithComment } from "./comment";
+import { withComment } from "./comment";
 import { buildState, type Casing } from "./state";
 
 const status = pgEnum("status", ["ACTIVE", "INACTIVE"]);
@@ -13,13 +13,16 @@ const status = pgEnum("status", ["ACTIVE", "INACTIVE"]);
 const schema = {
   status,
   // Columns with and without names, in camelCase and snake_case
-  userAccounts: pgTableWithComment("userAccounts", "User accounts", {
-    accountId: serial().primaryKey().comment("Account ID"),
-    fullName: text("full_name").comment("Full name"),
-    displayName: text("displayName"),
-    loginCount: integer().notNull().default(0),
-    accountStatus: status(),
-  }),
+  userAccounts: withComment(
+    pgTable("userAccounts", {
+      accountId: withComment(serial().primaryKey(), "Account ID"),
+      fullName: withComment(text("full_name"), "Full name"),
+      displayName: text("displayName"),
+      loginCount: integer().notNull().default(0),
+      accountStatus: status(),
+    }),
+    "User accounts",
+  ),
   posts: pgTable("posts", (t) => ({ postId: t.serial().primaryKey(), title_text: t.text() })),
   // Names with acronyms and digits, which are easy to convert differently
   profiles: pgTable("profiles", { userID: integer(), HTMLContent: text(), address2Line: text() }),

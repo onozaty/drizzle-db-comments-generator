@@ -1,21 +1,21 @@
 /**
  * Runs the built package in temporary projects of both ES modules and CommonJS:
  * the CLI, to check how config files and schemas are actually loaded with tsx,
- * and the library at runtime, to check that `.comment()` is added to the drizzle-orm the project uses.
+ * and the library at runtime, to check that it works with the drizzle-orm (ES modules or CommonJS) the project uses.
  * (Inside vitest, imports are handled by vite, so unit tests cannot check these.)
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { createProject, type Project } from "./helpers/project";
 
 const SCHEMA = `
-import { serial, text } from "drizzle-orm/pg-core";
-import { pgTableWithComment } from "drizzle-db-comments-generator";
+import { withComment } from "drizzle-db-comments-generator";
+import { pgTable, serial, text } from "drizzle-orm/pg-core";
 import { status } from "./enums";
 
-export const users = pgTableWithComment("users", "Users", {
-  id: serial("id").primaryKey().comment("User ID"),
-  status: status("status").comment("Status"),
-});
+export const users = withComment(pgTable("users", {
+  id: withComment(serial("id").primaryKey(), "User ID"),
+  status: withComment(status("status"), "Status"),
+}), "Users");
 `;
 
 const ENUMS = `
@@ -70,10 +70,10 @@ describe("cli", () => {
     project.write(
       "src/schema.ts",
       `
-import { text } from "drizzle-orm/pg-core";
-import { pgTableWithComment } from "drizzle-db-comments-generator";
+import { pgTable, text } from "drizzle-orm/pg-core";
+import { withComment } from "drizzle-db-comments-generator";
 
-export const users = pgTableWithComment("users", "Users", { fullName: text().comment("Full name") });
+export const users = withComment(pgTable("users", { fullName: withComment(text(), "Full name") }), "Users");
 `,
     );
     project.write("drizzle.config.ts", CONFIG.replace(`out: "./drizzle"`, `out: "./drizzle", casing: "snake_case"`));
@@ -84,6 +84,38 @@ export const users = pgTableWithComment("users", "Users", { fullName: text().com
     // Assert
     expect(result.stderr).toBe("");
     expect(result.stdout).toContain(`COMMENT ON COLUMN "users"."full_name" IS 'Full name';`);
+  });
+
+  it("sets comments on shared columns defined in another file imported first", () => {
+    // Arrange
+    const project = setUp({ name: "project" });
+    project.write(
+      "src/columns.ts",
+      `
+import { timestamp } from "drizzle-orm/pg-core";
+import { withComment } from "drizzle-db-comments-generator";
+
+export const timestamps = { createdAt: withComment(timestamp("created_at"), "Created at") };
+`,
+    );
+    project.write(
+      "src/schema.ts",
+      `
+import { timestamps } from "./columns";
+import { pgTable, serial } from "drizzle-orm/pg-core";
+
+export const users = pgTable("users", { id: serial("id"), ...timestamps });
+`,
+    );
+
+    // Act
+    const kit = project.runDrizzleKit("generate");
+    const result = project.runCli("--dry-run");
+
+    // Assert
+    expect(kit.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain(`COMMENT ON COLUMN "users"."created_at" IS 'Created at';`);
   });
 
   it("fails with the usage for an unknown option", () => {
@@ -102,7 +134,7 @@ export const users = pgTableWithComment("users", "Users", { fullName: text().com
 
 describe("library at runtime", () => {
   const APP = `
-const users = pgTableWithComment("users", "Users", { name: text("name").comment("Name") });
+const users = withComment(pgTable("users", { name: withComment(text("name"), "Name") }), "Users");
 console.log(getTableConfig(users).columns[0].config.comment);
 `;
 
@@ -110,14 +142,14 @@ console.log(getTableConfig(users).columns[0].config.comment);
     {
       name: "an ES module project",
       packageJson: { name: "project", type: "module" },
-      app: `import { getTableConfig, text } from "drizzle-orm/pg-core";\nimport { pgTableWithComment } from "drizzle-db-comments-generator";\n${APP}`,
+      app: `import { getTableConfig, pgTable, text } from "drizzle-orm/pg-core";\nimport { withComment } from "drizzle-db-comments-generator";\n${APP}`,
     },
     {
       name: "a CommonJS project",
       packageJson: { name: "project" },
-      app: `const { getTableConfig, text } = require("drizzle-orm/pg-core");\nconst { pgTableWithComment } = require("drizzle-db-comments-generator");\n${APP}`,
+      app: `const { getTableConfig, pgTable, text } = require("drizzle-orm/pg-core");\nconst { withComment } = require("drizzle-db-comments-generator");\n${APP}`,
     },
-  ])("adds .comment() to the drizzle-orm used in $name", ({ packageJson, app }) => {
+  ])("sets comments with the drizzle-orm used in $name", ({ packageJson, app }) => {
     // Arrange
     const project = setUp(packageJson);
     project.write("app.js", app);

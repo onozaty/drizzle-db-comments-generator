@@ -13,17 +13,25 @@ drizzle-kit のカスタムマイグレーションとして生成するライ�
 ## 2. 利用イメージ
 
 ```ts
-import { serial, text, pgSchema } from "drizzle-orm/pg-core";
-import { pgTableWithComment, withComment } from "drizzle-db-comments-generator"; // パッケージ名は未決
+import { pgSchema, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { withComment } from "drizzle-db-comments-generator"; // パッケージ名は未決
 
-export const customers = pgTableWithComment("customers", "顧客", {
-  customerId: serial("customer_id").primaryKey().comment("顧客ID"),
-  name: text("name").notNull().comment("氏名"),
-});
+export const customers = withComment(
+  pgTable("customers", {
+    customerId: withComment(serial("customer_id").primaryKey(), "顧客ID"),
+    name: withComment(text("name").notNull(), "氏名"),
+  }),
+  "顧客",
+);
 
-// pgSchema / pgTableCreator の場合
-const authTable = withComment(pgSchema("auth").table);
-export const users = authTable("users", "ユーザー", { ... });
+// pgSchema / pgTableCreator のテーブルも同じ
+export const auth = pgSchema("auth");
+export const users = withComment(auth.table("users", { ... }), "ユーザー");
+
+// 共通のカラム定義にも付けられる
+export const timestamps = {
+  createdAt: withComment(timestamp("created_at").defaultNow().notNull(), "作成日時"),
+};
 ```
 
 ```bash
@@ -34,21 +42,22 @@ drizzle-kit migrate
 
 ## 3. 仕様
 
-### 3.1 テーブルコメント API
+### 3.1 コメントを定義する API
 
-- `pgTableWithComment(name, comment, columns, extraConfig?)`
-  - 引数は `pgTable` と同じで、テーブル名の直後にコメントが入る。`columns` はオブジェクト形式・コールバック形式の両方に対応する。
-  - 戻り値の型は `pgTable` と同一（`$inferSelect` / `$inferInsert` などがそのまま使える）。
-- `withComment(tableFn)`
-  - 任意の `PgTableFn`（`pgTable` / `pgSchema("x").table` / `pgTableCreator(...)`）をコメント付き版に変換する。
-- コメントは `Symbol.for("generate-db-comments:TableComment")` をキーとしてテーブルオブジェクトに保持する。
+公開する API は `withComment(target, comment)` だけ。
 
-### 3.2 カラムコメント API
+- `target` がテーブルならテーブルコメント、カラムならカラムコメントを設定し、`target` をそのまま返す。
+  - 戻り値の型は `target` と同じ（`$inferSelect` / `$inferInsert`、`notNull` などがそのまま使える）。
+  - テーブルは、どのテーブル関数（`pgTable` / `pgSchema("x").table` / `pgTableCreator(...)`）で作ったものでもよい。
+  - カラムは、メソッドチェーンのどこで包んでもよい（`withComment(text("x"), "...").notNull()` も可）。
+  - カラムとして受け付けるのはカラムの定義（`text("name")` などのカラムビルダー）で、作成済みのテーブルのカラム（`users.id`）は受け付けない。
+  - テーブルでもカラムの定義でもないものを渡すと、型エラー・実行時エラー（`TypeError`）になる。
+- コメントは渡されたオブジェクトに直接書き込む。
+  - テーブル: `Symbol.for("generate-db-comments:TableComment")` をキーとしてテーブルオブジェクトに保持する。
+  - カラム: ビルダーの `config.comment` に保存する（ビルド後のカラムの `config` に引き継がれる）。
+  - そのため、複数のテーブルで使い回しているカラム定義を包むと、そのカラムを使うすべてのテーブルでコメントが変わる。
 
-- 全カラムビルダーに `.comment(text)` を追加する。戻り値は `this` で、前後に他のメソッドをチェーンできる。
-- コメントはビルダーの `config.comment` に保存する（ビルド後のカラムの `config` に引き継がれる）。
-
-### 3.3 CLI（コメント用マイグレーション生成）
+### 3.2 CLI（コメント用マイグレーション生成）
 
 **入力**
 
@@ -122,35 +131,24 @@ drizzle-kit migrate
 
 | 決定 | 理由 | 却下した案 |
 |---|---|---|
-| テーブルコメントは `pgTable` をラップする関数で指定する | ラップなら戻り値の型を `pgTable` と同一にでき、カラム名との衝突もない | `PgTable.prototype.comment()` を追加する案: `comment` という名前のカラムを持つテーブルで、カラムがメソッドを上書きして実行時エラーになる |
-| カラムコメントは `ColumnBuilder.prototype` を拡張する（`declare module "drizzle-orm/column-builder"` で型拡張） | カラム関数は種類が多く、すべてをラップするのは現実的でない | カラム関数ごとのラップ |
+| テーブルもカラムも、作ったものを `withComment(target, comment)` で包む（1 つの関数だけを公開する） | 覚える API が 1 つで済む。drizzle のテーブル関数をそのまま使うので、`pgSchema` / `pgTableCreator` や将来の MySQL などにも API を増やさずに対応できる。受け取った型をそのまま返すだけなので、`pgTable` の複雑な型をなぞる必要がなく、drizzle-orm の型の変更の影響を受けにくい。import した関数を必ず呼ぶため、import の削除や読み込み順の影響を受けない | `pgTableWithComment(name, comment, columns)` とカラムの `.comment()`（プロトタイプ版）: `.comment()` は `ColumnBuilder.prototype` に後から追加するため、本ライブラリより先に評価されるファイル（共通のカラム定義など）や、未使用の import が変換で削除されたファイルで `.comment is not a function` になる。型エラーにならず読み込み順で結果が変わるため気づきにくい。テーブル定義の引数でカラムのコメントをまとめて渡す案: コメントが定義から離れ、共通のカラム定義に付けられない。コメントを先に書く `withComment(comment, target)`: カラム定義の前にコメントが来て見慣れない。テーブルに `.comment()` を後付けする案: `comment` という名前のカラムを持つテーブルで、カラムがメソッドを上書きして実行時エラーになる |
 | コメントは明示的な API で定義する | 確実に取得でき、ビルドや実行環境に依存しない | JSDoc（`/** */`）を TypeScript Compiler API で解析する案: 解析が不確実なうえ、TypeScript 7 は Go 実装で JS の Compiler API がない |
 | 差分は状態ファイル（`comments-latest.json`）で管理する | prisma 版と同じ方式。DB に接続せずに差分を出せる | DB から現在のコメントを読み取る案 |
 | 出力は drizzle-kit のカスタムマイグレーションに書き込む | drizzle-kit の journal と整合し、`drizzle-kit migrate` でそのまま適用できる | 独自のマイグレーション管理 |
 | テーブルコメントのキーに `Symbol.for` を使う | 定義 API と CLI でモジュールのインスタンスが別になってもキーが一致する | モジュールローカルの `Symbol()` |
 | 開発は TypeScript 7 で行い、Lint / Formatter は Biome を使う | Biome は TypeScript の JS API に依存せず TypeScript 7 と併用できる。利用者には JS と型定義だけを配布するため、利用者の TypeScript のバージョンは制限しない | TypeScript 6 + ESLint（typescript-eslint）+ Prettier: typescript-eslint が TypeScript 6.0 までしか対応していない |
-| 設定ファイルとスキーマは drizzle-kit と同じく tsx の CommonJS ローダー（`tsx/cjs/api` の `register`）と `require` で読み込む | drizzle-kit と同じ読み込み方なので、drizzle-kit が読み込めるスキーマ（拡張子なしの相対 import、tsconfig の paths、`export default` / `module.exports` の設定ファイルなど）はそのまま読み込める。ES module / CommonJS どちらのプロジェクトでも、スキーマと本ライブラリが同じ drizzle-orm（CommonJS 版）を使うため `.comment()` が効く。tsx は drizzle-kit の依存でもあるため、通常は重複しない | tsx の ESM ローダーで `import`: CommonJS のプロジェクトではスキーマが CommonJS 版、本ライブラリが ESM 版の drizzle-orm を使い、`.comment()` が効かない。Node.js の型除去: 拡張子なしの相対 import を解決できない。jiti: drizzle-kit と読み込み方が異なり挙動差が出うる |
+| 設定ファイルとスキーマは drizzle-kit と同じく tsx の CommonJS ローダー（`tsx/cjs/api` の `register`）と `require` で読み込む | drizzle-kit と同じ読み込み方なので、drizzle-kit が読み込めるスキーマ（拡張子なしの相対 import、tsconfig の paths、`export default` / `module.exports` の設定ファイルなど）はそのまま読み込める。ES module / CommonJS どちらのプロジェクトでも、スキーマと CLI が同じ drizzle-orm（CommonJS 版）を使う。tsx は drizzle-kit の依存でもあるため、通常は重複しない | tsx の ESM ローダーで `import`: CommonJS のプロジェクトではスキーマと CLI で drizzle-orm が別インスタンスになる（drizzle-orm はインスタンスをまたいで判定できる作りだが、依存しない方が安全）。Node.js の型除去: 拡張子なしの相対 import を解決できない。jiti: drizzle-kit と読み込み方が異なり挙動差が出うる |
 | カラム名の `casing` 変換は drizzle-orm の `CasingCache`（`drizzle-orm/casing`）の `getColumnCasing` で行う | drizzle-orm がクエリ生成で使う公開 API で、drizzle-kit と同じ規則（名前を省略したカラムだけを変換する）。変換規則を自前で持たずに済む。drizzle-kit の結果（`drizzle-kit/api` の `generateDrizzleJson`）とテーブル名・カラム名が一致することをテストで確認している | `toSnakeCase` / `toCamelCase` を使って自前で判定する |
 | ビルドは tsdown を使う。対応 Node.js は 22 以上 | 型定義を出力でき、`exports` と `bin` をまとめてビルドできる | esbuild（型定義を出力できない）、tsup（後継が tsdown） |
-| ライブラリは ESM と CommonJS の両方を出力し（`exports` の `import` / `require` で切り替え、型定義も `.d.mts` / `.d.cts`）、CLI は CommonJS で出力する | drizzle-orm は ESM 版と CommonJS 版を持ち、プロジェクトの種類によってどちらが使われるかが変わる。`.comment()` は使われる側の `ColumnBuilder` に追加する必要があり、型のモジュール拡張も同様。CLI は drizzle-kit と同じく、読み込むスキーマと同じ CommonJS 版の drizzle-orm を共有するため CommonJS にする | ESM のみ: CommonJS のプロジェクトで `.comment()` が実行時・型ともに使えない（Node.js 22 の `require(esm)` で読み込めても、追加先が ESM 版の drizzle-orm になる） |
+| ライブラリは ESM と CommonJS の両方を出力し（`exports` の `import` / `require` で切り替え、型定義も `.d.mts` / `.d.cts`）、CLI は CommonJS で出力する | CommonJS のプロジェクトでも確実に使えるようにする: CommonJS から ESM を `require` できるのは Node.js 22.12 以上で、22.0〜22.11 では読み込めない。CommonJS 用の型定義（`.d.cts`）も提供できる。CLI は drizzle-kit と同じく、読み込むスキーマと同じ CommonJS 版の drizzle-orm を共有するため CommonJS にする | ESM のみ: Node.js 22.0〜22.11 の CommonJS のプロジェクトで読み込めない |
 
 ## 5. 前提・制約
 
 - **drizzle-orm の内部挙動に依存している**
   - ビルダーの `config` オブジェクトが、ビルド後のカラムの `config` にそのまま引き継がれる。
   - drizzle-orm のメジャーバージョンアップ（v1 など）で内部構造が変わると動かなくなる可能性がある。
-- **`.comment()` を使うファイルでは、本ライブラリを import する必要がある**
-  - `.comment()` は本ライブラリの読み込み時に `ColumnBuilder.prototype` に追加されるため、読み込まれる前にカラムを定義すると `.comment is not a function` になる。
-  - `import { pgTableWithComment } from "..."` のように値を import しても、そのファイルで値として使っていなければ（型としてだけ使う場合を含む）、
-    TypeScript の変換（tsc / tsx / esbuild など）で import 自体が削除されることがある。
-    `verbatimModuleSyntax` を有効にしている場合や、Node.js の型除去で実行する場合は削除されない。
-  - 型は `declare module` によるモジュール拡張で付くため、import が削除されても `.comment()` は型エラーにならず、実行時にだけ失敗する（気づきにくい）。
-  - import が残っていても、本ライブラリより先に評価されるファイルでは `.comment()` がまだない。
-    例えば共通のカラム定義を別ファイル（`columns.helpers.ts` など）に置き、スキーマから本ライブラリより先に import すると、そのファイルで失敗する。
-  - そのため、現状は `.comment()` を使う **すべてのファイル** で、副作用だけの import（`import "drizzle-db-comments-generator";`）を書く必要がある。
-    この制約は守られなくても気づきにくいため、`.comment()` を使わない API の追加を検討する（plan.md）。
-- **drizzle-orm は peerDependencies にする必要がある**
-  - `.comment()` は `ColumnBuilder.prototype` に追加するため、利用者のプロジェクトと本ライブラリで drizzle-orm が別インスタンスになると、利用者側のビルダーに `.comment()` が生えない。
+- **drizzle-orm は peerDependencies にする**
+  - 本ライブラリは利用者のテーブル・カラムを drizzle-orm の API（`is`、`getTableConfig`、`CasingCache`）で扱うため、利用者と同じ drizzle-orm を使う。
 - **CLI の動作環境**
   - Yarn PnP では drizzle-kit の実行ファイルが zip 内のパスになるため、`yarn run` 経由（PnP ローダーが有効な状態）でのみ動く。
   - `schema` の glob 展開は drizzle-kit（glob）と異なるライブラリ（tinyglobby）で行うため、Windows のバックスラッシュ区切りのパスなど、細かな挙動が異なる可能性がある。
@@ -178,9 +176,9 @@ drizzle-kit migrate
 - 初回の全件出力と、migrate による DB への反映（`col_description` / `obj_description` で確認）
 - コメントの変更・追加・削除時に差分のみ出力されること、変更がなければファイルを作らないこと
 - 複数行コメント、`'` のエスケープ、enum 情報の追記
-- `.comment()` / `pgTableWithComment` を使っても `drizzle-kit generate` が「変更なし」になること
+- コメントを付けても `drizzle-kit generate` が「変更なし」になること
 - コールバック形式のカラム定義、第3引数（index）、`comment` という名前のカラム、`pgSchema("auth")`
-- 型チェック: TS 5.9 / TS 7.0 × moduleResolution `bundler` / `nodenext`。`$inferSelect` / `$inferInsert`、notNull の維持、`.comment()` 前後のメソッドチェーン
+- 型チェック: TS 5.9 / TS 7.0 × moduleResolution `bundler` / `nodenext`。`$inferSelect` / `$inferInsert`、notNull の維持、メソッドチェーン
 
 ## 7. 未決事項
 

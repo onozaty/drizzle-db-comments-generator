@@ -3,7 +3,7 @@
  * Type-checked against the source (`pnpm run typecheck`) and against the built type declarations
  * with several TypeScript versions (`pnpm run test:types`).
  */
-import { type PgTableWithCommentFn, pgTableWithComment, withComment } from "drizzle-db-comments-generator";
+import { withComment } from "drizzle-db-comments-generator";
 import { index, integer, pgEnum, pgSchema, pgTable, pgTableCreator, serial, text } from "drizzle-orm/pg-core";
 
 type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
@@ -15,7 +15,7 @@ function assertType<T extends true>(): T | undefined {
 
 const status = pgEnum("status", ["ACTIVE", "INACTIVE"]);
 
-// pgTableWithComment returns the same type as pgTable
+// withComment returns the same type as the table
 const columns = () => ({
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -23,66 +23,62 @@ const columns = () => ({
   status: status("status").notNull(),
 });
 const plain = pgTable("users", columns());
-const commented = pgTableWithComment("users", "Users", columns());
+const commented = withComment(pgTable("users", columns()), "Users");
 assertType<Equal<typeof commented, typeof plain>>();
 assertType<Equal<typeof commented.$inferSelect, typeof plain.$inferSelect>>();
 assertType<Equal<typeof commented.$inferInsert, typeof plain.$inferInsert>>();
 
-// The exported function type
-assertType<Equal<typeof pgTableWithComment, PgTableWithCommentFn>>();
-const authTableFn: PgTableWithCommentFn<"auth"> = withComment(pgSchema("auth").table);
-
-// .comment() takes a string and returns the builder itself, so the column types are kept wherever it is in the method chain
+// withComment returns the same type as the column, so the column types are kept wherever it is in the method chain
 const builder = text("name").notNull();
-assertType<Equal<Parameters<typeof builder.comment>, [text: string]>>();
-assertType<Equal<ReturnType<typeof builder.comment>, typeof builder>>();
-const chained = pgTableWithComment("chained", "Chained", {
-  before: text("before").comment("Before").notNull(),
-  after: text("after").notNull().comment("After"),
-  optional: integer("optional").comment("Optional"),
-  status: status("status").comment("Status").notNull(),
-});
+const commentedBuilder = withComment(builder, "Name");
+assertType<Equal<typeof commentedBuilder, typeof builder>>();
+const chained = withComment(
+  pgTable("chained", {
+    before: withComment(text("before"), "Before").notNull(),
+    after: withComment(text("after").notNull(), "After"),
+    optional: withComment(integer("optional"), "Optional"),
+    status: withComment(status("status"), "Status").notNull(),
+  }),
+  "Chained",
+);
 assertType<
   Equal<
     typeof chained.$inferSelect,
     { before: string; after: string; optional: number | null; status: "ACTIVE" | "INACTIVE" }
   >
 >();
-const insertable = pgTableWithComment("insertable", "Insertable", {
-  id: serial("id").comment("ID").primaryKey(),
-  count: integer("count").comment("Count").notNull().default(0),
-  tags: text("tags").$type<"a" | "b">().comment("Tags").notNull(),
+const insertable = pgTable("insertable", {
+  id: withComment(serial("id"), "ID").primaryKey(),
+  count: withComment(integer("count"), "Count").notNull().default(0),
+  tags: withComment(text("tags").$type<"a" | "b">(), "Tags").notNull(),
 });
 assertType<Equal<typeof insertable.$inferInsert, { id?: number; count?: number; tags: "a" | "b" }>>();
 
 // Columns defined with a callback, and the extra config typed with the columns
-const posts = pgTableWithComment(
-  "posts",
+const posts = withComment(
+  pgTable(
+    "posts",
+    (t) => ({ id: withComment(t.serial().primaryKey(), "Post ID"), title: withComment(t.text().notNull(), "Title") }),
+    (table) => [index("posts_title_idx").on(table.title)],
+  ),
   "Posts",
-  (t) => ({ id: t.serial().primaryKey().comment("Post ID"), title: t.text().notNull().comment("Title") }),
-  (table) => [index("posts_title_idx").on(table.title)],
 );
 assertType<Equal<typeof posts.$inferSelect, { id: number; title: string }>>();
 
-// Columns as an object, with the extra config
-const comments = pgTableWithComment(
-  "comments",
-  "Comments",
-  { id: serial("id").primaryKey(), body: text("body").notNull() },
-  (table) => [index("comments_body_idx").on(table.body)],
-);
-assertType<Equal<typeof comments.$inferSelect, { id: number; body: string }>>();
-
-// withComment works with any table function, and keeps its schema
-const prefixed = withComment(pgTableCreator((name) => `app_${name}`))("users", "Users", { id: serial("id") });
-assertType<Equal<typeof prefixed._.name, "users">>();
-const authUsers = authTableFn("users", "Users", { id: serial("id").comment("User ID") });
+// Tables of any table function keep their types
+const authUsers = withComment(pgSchema("auth").table("users", { id: serial("id") }), "Users");
 assertType<Equal<typeof authUsers._.schema, "auth">>();
+const prefixed = withComment(pgTableCreator((name) => `app_${name}`)("users", { id: serial("id") }), "Users");
+assertType<Equal<typeof prefixed._.name, "users">>();
 
 // Wrong usages are type errors
-// @ts-expect-error the table comment must be a string
-pgTableWithComment("invalid", 1, { id: serial("id") });
-// @ts-expect-error the columns come after the table comment
-pgTableWithComment("invalid", { id: serial("id") });
-// @ts-expect-error the column comment must be a string
-text("invalid").comment(1);
+// @ts-expect-error the comment must be a string
+withComment(pgTable("invalid", { id: serial("id") }), 1);
+// @ts-expect-error the comment must be a string
+withComment(text("invalid"), 1);
+// @ts-expect-error only tables and columns take comments
+withComment({ name: "invalid" }, "Comment");
+// @ts-expect-error a table function is not a table
+withComment(pgTable, "Comment");
+// @ts-expect-error a column of a created table is not a column definition
+withComment(plain.id, "Comment");

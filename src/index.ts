@@ -1,1 +1,1 @@
-export { type PgTableWithCommentFn, pgTableWithComment, withComment } from "./comment";
+export { withComment } from "./comment";

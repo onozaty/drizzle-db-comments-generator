@@ -1,110 +1,128 @@
-import { getTableConfig, index, integer, pgSchema, pgTable, serial, text } from "drizzle-orm/pg-core";
+import { getTableConfig, index, integer, pgSchema, pgTable, pgTableCreator, serial, text } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { getColumnComment, getTableComment, pgTableWithComment, withComment } from "./comment";
-
-describe("pgTableWithComment", () => {
-  it("keeps the table comment", () => {
-    // Arrange & Act
-    const table = pgTableWithComment("users", "Users", { id: serial("id").primaryKey() });
-
-    // Assert
-    expect(getTableComment(table)).toBe("Users");
-  });
-
-  it("keeps the table comment when columns are defined with a callback", () => {
-    // Arrange & Act
-    const table = pgTableWithComment("users", "Users", (t) => ({ id: t.serial("id").primaryKey() }));
-
-    // Assert
-    expect(getTableComment(table)).toBe("Users");
-  });
-
-  it("keeps column comments when columns are defined with a callback", () => {
-    // Arrange & Act
-    const table = pgTableWithComment("users", "Users", (t) => ({ id: t.serial("id").primaryKey().comment("User ID") }));
-
-    // Assert
-    expect(getColumnComment(table.id)).toBe("User ID");
-  });
-
-  it("passes extraConfig through to pgTable", () => {
-    // Arrange & Act
-    const table = pgTableWithComment("users", "Users", { name: text("name") }, (t) => [
-      index("users_name_idx").on(t.name),
-    ]);
-
-    // Assert
-    expect(getTableConfig(table).indexes.map((i) => i.config.name)).toEqual(["users_name_idx"]);
-  });
-
-  it("works with a column named 'comment'", () => {
-    // Arrange & Act
-    const table = pgTableWithComment("posts", "Posts", { comment: text("comment").comment("Body") });
-
-    // Assert
-    expect(getTableComment(table)).toBe("Posts");
-    expect(getColumnComment(table.comment)).toBe("Body");
-  });
-
-  it("produces the same table config as pgTable", () => {
-    // Arrange
-    const columns = () => ({
-      id: serial("id").primaryKey(),
-      name: text("name").notNull().unique(),
-      age: integer("age").default(0),
-    });
-
-    // Act
-    const plain = getTableConfig(pgTable("users", columns()));
-    const commented = getTableConfig(pgTableWithComment("users", "Users", columns()));
-
-    // Assert
-    const summarize = (config: ReturnType<typeof getTableConfig>) => ({
-      name: config.name,
-      schema: config.schema,
-      columns: config.columns.map((c) => [c.name, c.notNull, c.primary, c.isUnique, c.hasDefault]),
-    });
-    expect(summarize(commented)).toEqual(summarize(plain));
-  });
-});
+import { getColumnComment, getTableComment, withComment } from "./comment";
 
 describe("withComment", () => {
-  it("keeps the table comment and the schema of pgSchema tables", () => {
-    // Arrange
-    const authTable = withComment(pgSchema("auth").table);
+  describe("tables", () => {
+    it.each([
+      { name: "pgTable", create: () => pgTable("users", { id: serial("id") }) },
+      { name: "pgSchema().table", create: () => pgSchema("auth").table("users", { id: serial("id") }) },
+      {
+        name: "pgTableCreator()",
+        create: () => pgTableCreator((name) => `app_${name}`)("users", { id: serial("id") }),
+      },
+    ])("keeps the comment of a table created with $name", ({ create }) => {
+      // Arrange
+      const table = create();
 
-    // Act
-    const table = authTable("users", "Users", { id: serial("id").primaryKey() });
+      // Act
+      const result = withComment(table, "Users");
 
-    // Assert
-    expect(getTableComment(table)).toBe("Users");
-    expect(getTableConfig(table).schema).toBe("auth");
-  });
-});
-
-describe(".comment()", () => {
-  it("keeps the column comment regardless of its position in the method chain", () => {
-    // Arrange & Act
-    const table = pgTable("users", {
-      before: text("before").comment("Before").notNull(),
-      after: text("after").notNull().comment("After"),
+      // Assert
+      expect(getTableComment(result)).toBe("Users");
     });
 
-    // Assert
-    expect(getColumnComment(table.before)).toBe("Before");
-    expect(getColumnComment(table.after)).toBe("After");
-    expect(table.before.notNull).toBe(true);
-    expect(table.after.notNull).toBe(true);
+    it("returns the same table", () => {
+      // Arrange
+      const table = pgTable("users", { id: serial("id") }, (t) => [index("users_id_idx").on(t.id)]);
+
+      // Act
+      const result = withComment(table, "Users");
+
+      // Assert
+      expect(result).toBe(table);
+    });
+
+    it("works with a column named 'comment'", () => {
+      // Arrange
+      const table = pgTable("posts", { comment: withComment(text("comment"), "Body") });
+
+      // Act
+      const result = withComment(table, "Posts");
+
+      // Assert
+      expect(getTableComment(result)).toBe("Posts");
+      expect(getColumnComment(result.comment)).toBe("Body");
+    });
+  });
+
+  describe("columns", () => {
+    it("keeps the comment of a column", () => {
+      // Arrange
+      const table = pgTable("users", { id: withComment(serial("id").primaryKey(), "User ID") });
+
+      // Act
+      const comment = getColumnComment(table.id);
+
+      // Assert
+      expect(comment).toBe("User ID");
+    });
+
+    it("keeps the comment regardless of its position in the method chain", () => {
+      // Arrange
+      const table = pgTable("users", {
+        before: withComment(text("before"), "Before").notNull(),
+        after: withComment(text("after").notNull(), "After"),
+      });
+
+      // Act
+      const comments = [getColumnComment(table.before), getColumnComment(table.after)];
+
+      // Assert
+      expect(comments).toEqual(["Before", "After"]);
+      expect([table.before.notNull, table.after.notNull]).toEqual([true, true]);
+    });
+
+    it("keeps the comment of columns defined with a callback", () => {
+      // Arrange
+      const table = pgTable("users", (t) => ({ id: withComment(t.serial().primaryKey(), "User ID") }));
+
+      // Act
+      const comment = getColumnComment(table.id);
+
+      // Assert
+      expect(comment).toBe("User ID");
+    });
+
+    it("does not change the table config", () => {
+      // Arrange
+      const columns = (commented: boolean) => ({
+        id: serial("id").primaryKey(),
+        name: commented ? withComment(text("name").notNull().unique(), "Name") : text("name").notNull().unique(),
+        age: integer("age").default(0),
+      });
+      const summarize = (config: ReturnType<typeof getTableConfig>) =>
+        config.columns.map((c) => [c.name, c.notNull, c.primary, c.isUnique, c.hasDefault]);
+
+      // Act
+      const commented = getTableConfig(withComment(pgTable("users", columns(true)), "Users"));
+      const plain = getTableConfig(pgTable("users", columns(false)));
+
+      // Assert
+      expect(summarize(commented)).toEqual(summarize(plain));
+    });
+  });
+
+  it.each([
+    { name: "an object", target: {} },
+    { name: "null", target: null },
+    { name: "a table function", target: pgTable },
+    { name: "a column of a created table", target: pgTable("users", { id: serial("id") }).id },
+  ])("throws an error for $name", ({ target }) => {
+    // Act & Assert
+    expect(() => withComment(target as never, "Comment")).toThrow("withComment() takes a table or a column definition");
   });
 });
 
 describe("getTableComment / getColumnComment", () => {
   it("returns undefined when no comment is set", () => {
-    // Arrange & Act
+    // Arrange
     const table = pgTable("users", { id: serial("id") });
 
+    // Act
+    const comments = [getTableComment(table), getColumnComment(table.id)];
+
     // Assert
-    expect(getTableComment(table)).toBeUndefined();
-    expect(getColumnComment(table.id)).toBeUndefined();
+    expect(comments).toEqual([undefined, undefined]);
   });
 });
