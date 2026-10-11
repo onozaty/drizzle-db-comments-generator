@@ -39,7 +39,8 @@ export function createProject(packageJson: Record<string, unknown>): Project {
   for (const name of ["drizzle-orm", "drizzle-kit", "pg"]) {
     fs.symlinkSync(fs.realpathSync(path.join(ROOT, "node_modules", name)), path.join(dir, "node_modules", name));
   }
-  fs.symlinkSync(ROOT, path.join(dir, "node_modules/drizzle-db-comments-generator"));
+  fs.mkdirSync(path.join(dir, "node_modules/@onozaty"));
+  fs.symlinkSync(ROOT, path.join(dir, "node_modules/@onozaty/drizzle-db-comments-generator"));
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify(packageJson));
 
   const runNode = (...args: string[]) =>

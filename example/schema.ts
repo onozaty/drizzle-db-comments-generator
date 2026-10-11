@@ -1,4 +1,4 @@
-import { withComment } from "drizzle-db-comments-generator";
+import { withComment } from "@onozaty/drizzle-db-comments-generator";
 import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 // Extensionless relative import, to check that schemas are loaded the same way as drizzle-kit
 import { productType } from "./enums";

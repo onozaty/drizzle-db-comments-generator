@@ -66,7 +66,7 @@ export default defineConfig({
 `,
   );
 
-const IMPORTS = `import { withComment } from "drizzle-db-comments-generator";
+const IMPORTS = `import { withComment } from "@onozaty/drizzle-db-comments-generator";
 import { integer, pgEnum, pgSchema, pgTable, serial, text } from "drizzle-orm/pg-core";
 `;
 

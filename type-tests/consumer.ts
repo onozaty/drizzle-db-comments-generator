@@ -3,7 +3,7 @@
  * Type-checked against the source (`pnpm run typecheck`) and against the built type declarations
  * with several TypeScript versions (`pnpm run test:types`).
  */
-import { withComment } from "drizzle-db-comments-generator";
+import { withComment } from "@onozaty/drizzle-db-comments-generator";
 import { index, integer, pgEnum, pgSchema, pgTable, pgTableCreator, serial, text } from "drizzle-orm/pg-core";
 
 type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;

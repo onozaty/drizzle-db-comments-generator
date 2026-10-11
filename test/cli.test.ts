@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createProject, type Project } from "./helpers/project";
 
 const SCHEMA = `
-import { withComment } from "drizzle-db-comments-generator";
+import { withComment } from "@onozaty/drizzle-db-comments-generator";
 import { pgTable, serial, text } from "drizzle-orm/pg-core";
 import { status } from "./enums";
 
@@ -71,7 +71,7 @@ describe("cli", () => {
       "src/schema.ts",
       `
 import { pgTable, text } from "drizzle-orm/pg-core";
-import { withComment } from "drizzle-db-comments-generator";
+import { withComment } from "@onozaty/drizzle-db-comments-generator";
 
 export const users = withComment(pgTable("users", { fullName: withComment(text(), "Full name") }), "Users");
 `,
@@ -93,7 +93,7 @@ export const users = withComment(pgTable("users", { fullName: withComment(text()
       "src/columns.ts",
       `
 import { timestamp } from "drizzle-orm/pg-core";
-import { withComment } from "drizzle-db-comments-generator";
+import { withComment } from "@onozaty/drizzle-db-comments-generator";
 
 export const timestamps = { createdAt: withComment(timestamp("created_at"), "Created at") };
 `,
@@ -142,12 +142,12 @@ console.log(getTableConfig(users).columns[0].config.comment);
     {
       name: "an ES module project",
       packageJson: { name: "project", type: "module" },
-      app: `import { getTableConfig, pgTable, text } from "drizzle-orm/pg-core";\nimport { withComment } from "drizzle-db-comments-generator";\n${APP}`,
+      app: `import { getTableConfig, pgTable, text } from "drizzle-orm/pg-core";\nimport { withComment } from "@onozaty/drizzle-db-comments-generator";\n${APP}`,
     },
     {
       name: "a CommonJS project",
       packageJson: { name: "project" },
-      app: `const { getTableConfig, pgTable, text } = require("drizzle-orm/pg-core");\nconst { withComment } = require("drizzle-db-comments-generator");\n${APP}`,
+      app: `const { getTableConfig, pgTable, text } = require("drizzle-orm/pg-core");\nconst { withComment } = require("@onozaty/drizzle-db-comments-generator");\n${APP}`,
     },
   ])("sets comments with the drizzle-orm used in $name", ({ packageJson, app }) => {
     // Arrange

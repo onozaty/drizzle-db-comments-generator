@@ -14,7 +14,7 @@ drizzle-kit のカスタムマイグレーションとして生成するライ�
 
 ```ts
 import { pgSchema, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
-import { withComment } from "drizzle-db-comments-generator"; // パッケージ名は未決
+import { withComment } from "@onozaty/drizzle-db-comments-generator";
 
 export const customers = withComment(
   pgTable("customers", {
@@ -53,7 +53,7 @@ drizzle-kit migrate
   - カラムとして受け付けるのはカラムの定義（`text("name")` などのカラムビルダー）で、作成済みのテーブルのカラム（`users.id`）は受け付けない。
   - テーブルでもカラムの定義でもないものを渡すと、型エラー・実行時エラー（`TypeError`）になる。
 - コメントは渡されたオブジェクトに直接書き込む。
-  - テーブル: `Symbol.for("generate-db-comments:TableComment")` をキーとしてテーブルオブジェクトに保持する。
+  - テーブル: `Symbol.for("drizzle-db-comments-generator:TableComment")` をキーとしてテーブルオブジェクトに保持する。
   - カラム: ビルダーの `config.comment` に保存する（ビルド後のカラムの `config` に引き継がれる）。
   - そのため、複数のテーブルで使い回しているカラム定義を包むと、そのカラムを使うすべてのテーブルでコメントが変わる。
 
@@ -141,6 +141,7 @@ drizzle-kit migrate
 | カラム名の `casing` 変換は drizzle-orm の `CasingCache`（`drizzle-orm/casing`）の `getColumnCasing` で行う | drizzle-orm がクエリ生成で使う公開 API で、drizzle-kit と同じ規則（名前を省略したカラムだけを変換する）。変換規則を自前で持たずに済む。drizzle-kit の結果（`drizzle-kit/api` の `generateDrizzleJson`）とテーブル名・カラム名が一致することをテストで確認している | `toSnakeCase` / `toCamelCase` を使って自前で判定する |
 | 初回リリースは drizzle-orm 0.x（0.45）と drizzle-kit 0.31 に対応する。v1 の正式リリース後に、v1 だけに対応する新しいメジャーバージョンを出す | v1 は rc で、正式リリースまでに変わる可能性があるため、正式版で確かめてから対応する。v1 は `casing` の仕組みなどが 0.x と大きく異なり、両対応にするとコードとテストに分岐が残り続ける。本ライブラリのメジャーバージョンと drizzle のバージョンを対応させると、利用者がどの版を使えばよいかが分かりやすい | 0.x と v1 の両対応: 分岐が残り、rc の変更に追従し続ける必要がある。v1 のみ: 利用者の多くがまだ 0.x |
 | prisma 版にあるコメントの絞り込み・変換のオプション（`targets`, `ignorePattern`, `ignoreCommentPattern`, `commentRemovePattern`, `commentTransformScript`, enum の detailed 形式）は採用しない | prisma 版はドキュメントコメント（`///`）を DB コメントに流用するため、DB に入れたくない内容の絞り込みや変換が必要だった。本ライブラリでは `withComment` で DB コメントとして書いたものだけが出力されるので、付けたくないものは書かなければよく、変換が必要ならコードで変換した文字列を渡せばよい。drizzle の enum には値ごとのコメントがないため、enum は `--enum` で足りる | prisma 版と同じオプションを用意する |
+| パッケージ名は `@onozaty/drizzle-db-comments-generator`（スコープ付き）、CLI のコマンド名は `drizzle-db-comments-generator` とする | prisma 版（`@onozaty/prisma-db-comments-generator`）と揃え、同じ作者の姉妹ライブラリと分かるようにする。スコープ内の名前は作者だけが使えるため、似た名前のパッケージとの混同や名前の先取りの心配がない | スコープなしの `drizzle-db-comments-generator` / `drizzle-db-comments`。`drizzle-comments` は v1 の SQLcommenter と紛らわしい |
 | ビルドは tsdown を使う。対応 Node.js は 22 以上 | 型定義を出力でき、`exports` と `bin` をまとめてビルドできる | esbuild（型定義を出力できない）、tsup（後継が tsdown） |
 | ライブラリは ESM と CommonJS の両方を出力し（`exports` の `import` / `require` で切り替え、型定義も `.d.mts` / `.d.cts`）、CLI は CommonJS で出力する | CommonJS のプロジェクトでも確実に使えるようにする: CommonJS から ESM を `require` できるのは Node.js 22.12 以上で、22.0〜22.11 では読み込めない。CommonJS 用の型定義（`.d.cts`）も提供できる。CLI は drizzle-kit と同じく、読み込むスキーマと同じ CommonJS 版の drizzle-orm を共有するため CommonJS にする | ESM のみ: Node.js 22.0〜22.11 の CommonJS のプロジェクトで読み込めない |
 
@@ -200,7 +201,4 @@ drizzle-kit migrate
 
 ## 8. 未決事項
 
-- **パッケージ名**: 第一候補は `drizzle-db-comments-generator`（prisma 版と揃える）。
-  他の候補は `drizzle-db-comments`、`@onozaty/drizzle-db-comments-generator`。
-  `drizzle-comments` は v1 の SQLcommenter と紛らわしいので避ける。
 - **MySQL 対応**: 対応するか、いつ対応するか。

@@ -36,7 +36,7 @@ const writeSchema = (body: string, file = "schema.ts") =>
   fs.writeFileSync(
     path.join(cwd, file),
     `import { pgEnum, pgTable, serial, text } from "drizzle-orm/pg-core";
-import { withComment } from "drizzle-db-comments-generator";
+import { withComment } from "@onozaty/drizzle-db-comments-generator";
 ${body}`,
   );
 

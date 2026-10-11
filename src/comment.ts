@@ -1,7 +1,7 @@
 /**
  * Defines database comments of tables and columns in Drizzle schemas.
  *
- *   import { withComment } from "drizzle-db-comments-generator";
+ *   import { withComment } from "@onozaty/drizzle-db-comments-generator";
  *
  *   export const users = withComment(
  *     pgTable("users", {
@@ -16,7 +16,7 @@
 import { type Column, ColumnBuilder, type ColumnBuilderBase, is, Table } from "drizzle-orm";
 
 // Symbol.for so that the key matches even if this module is loaded more than once (ES modules and CommonJS)
-const TableComment = Symbol.for("generate-db-comments:TableComment");
+const TableComment = Symbol.for("drizzle-db-comments-generator:TableComment");
 
 /**
  * Sets the database comment of a table or a column definition, and returns it as is.

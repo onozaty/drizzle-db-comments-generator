@@ -4,7 +4,7 @@
     "allowImportingTsExtensions": true,
     // Type-check against the source so that it works without building
     "paths": {
-      "drizzle-db-comments-generator": ["../src/index.ts"]
+      "@onozaty/drizzle-db-comments-generator": ["../src/index.ts"]
     }
   },
   "include": ["."]

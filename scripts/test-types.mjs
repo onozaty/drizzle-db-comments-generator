@@ -30,7 +30,8 @@ function createCommonJsProject() {
   const dir = path.join(tmpDir, "commonjs");
   fs.mkdirSync(path.join(dir, "node_modules"), { recursive: true });
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "consumer" }));
-  fs.symlinkSync(ROOT, path.join(dir, "node_modules/drizzle-db-comments-generator"));
+  fs.mkdirSync(path.join(dir, "node_modules/@onozaty"));
+  fs.symlinkSync(ROOT, path.join(dir, "node_modules/@onozaty/drizzle-db-comments-generator"));
   fs.symlinkSync(
     fs.realpathSync(path.join(ROOT, "node_modules/drizzle-orm")),
     path.join(dir, "node_modules/drizzle-orm"),
