@@ -20,9 +20,9 @@
 - [x] 状態ファイルのキーを DB の種類に依存しない形式にし、引用符は SQL 生成時に付ける（MySQL 対応を見据えて公開前に決める）
 - [x] 差分の計算（DB に依存しない変更点）と SQL の生成を分ける
 - [x] 識別子に含まれる `"` をエスケープする
-- [ ] 設定ファイル（`--config`、既定 `drizzle.config.ts`）から `schema` / `out` を読む。`--schema` / `--out` は廃止
-- [ ] 内部で呼ぶ drizzle-kit に同じ `--config` を渡す
-- [ ] TypeScript の設定ファイル・スキーマの読み込み方法を決めて対応する
+- [x] 設定ファイル（`--config`、既定 `drizzle.config.ts`）から `schema` / `out` を読む。`--schema` / `--out` は廃止
+- [x] 内部で呼ぶ drizzle-kit に同じ `--config` を渡す
+- [x] TypeScript の設定ファイル・スキーマの読み込み方法を決めて対応する
 - [x] `public` スキーマの状態キーの扱いを決めて対応する
 - [ ] `casing` 設定でカラム名を省略した場合の名前解決を確認する
 

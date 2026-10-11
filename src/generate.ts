@@ -7,6 +7,7 @@ import { buildState, type CommentsState } from "./state";
 export type GenerateOptions = {
   outDir: string;
   migrationName: string;
+  configPath: string;
   includeEnum?: boolean;
   dryRun?: boolean;
 };
@@ -31,7 +32,11 @@ export function generate(modules: Record<string, unknown>[], options: GenerateOp
   const sql = toPostgresSql(changes);
   if (options.dryRun) return { status: "dry-run", sql };
 
-  const file = writeMigration(options.outDir, options.migrationName, sql);
+  const file = writeMigration(sql, {
+    outDir: options.outDir,
+    name: options.migrationName,
+    configPath: options.configPath,
+  });
   writeState(options.outDir, next);
   return { status: "generated", sql, file };
 }

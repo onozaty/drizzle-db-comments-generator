@@ -1,6 +1,7 @@
 import { is } from "drizzle-orm";
 import { getTableConfig, PgTable } from "drizzle-orm/pg-core";
 import { getColumnComment, getTableComment } from "./comment";
+import { GeneratorError } from "./errors";
 
 export const STATE_VERSION = 1;
 
@@ -48,7 +49,7 @@ export function buildState(modules: Record<string, unknown>[], options: BuildSta
       const key = stateKey(config.schema, config.name);
       const source = sources.get(key);
       if (source === value) continue; // The same table exported more than once
-      if (source) throw new Error(`Multiple tables map to the same name "${key}"`);
+      if (source) throw new GeneratorError(`Multiple tables map to the same name "${key}"`);
       sources.set(key, value);
 
       const table: TableState = {

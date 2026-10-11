@@ -14,7 +14,7 @@ DevContainer（`.devcontainer/`）で開発する。
 |---|---|
 | `pnpm install` | 依存パッケージのインストール |
 | `pnpm run build` | ビルド（`dist/` に出力） |
-| `pnpm test` | ユニットテスト |
+| `pnpm test` | テスト（ビルドした CLI を一時的なプロジェクトで実行するテストを含むため、ビルドも行う） |
 | `pnpm run test:cov` | カバレッジ付きでユニットテスト |
 | `pnpm run lint` | Lint とフォーマットのチェック（Biome） |
 | `pnpm run format` | Lint の自動修正とフォーマット（Biome） |
@@ -28,6 +28,7 @@ DevContainer（`.devcontainer/`）で開発する。
 | ファイル | 内容 |
 |---|---|
 | `example/schema.ts` | 動作確認用のスキーマ。パッケージ名で import するため、実行時はビルド結果（`dist/`）が使われる |
+| `example/enums.ts` | `schema.ts` から拡張子なしの相対パスで import する enum。drizzle-kit と同じ方法でスキーマを読み込めることの確認を兼ねる |
 | `example/drizzle.config.ts` | drizzle-kit の設定。接続先は環境変数 `EXAMPLE_DATABASE_URL` で変更できる |
 | `example/drizzle/` | 生成されたマイグレーションと状態ファイル（git 管理外） |
 

@@ -62,11 +62,16 @@ drizzle-kit migrate
 **設定**
 
 - drizzle-kit と同じく、設定ファイルからスキーマの場所（`schema`）と出力先（`out`）を求める。
-  - `schema` は drizzle-kit と同じ形式（ファイル、ディレクトリ、glob、それらの配列）に対応する。
+  - `--config` を省略した場合は、drizzle-kit と同じく `drizzle.config.ts` → `drizzle.config.js` → `drizzle.config.json` の順に探す。
+  - `schema` は drizzle-kit と同じ形式（ファイル、ディレクトリ（直下のファイル）、glob、それらの配列）に対応する。
+  - `schema` / `out` の相対パスは、drizzle-kit と同じく設定ファイルの場所ではなくカレントディレクトリを基準にする。
   - `out` を省略した場合は drizzle-kit と同じ `drizzle` とする。
   - `dialect` が `postgresql` 以外の場合はエラーにする。
+- 設定ファイルとスキーマ（TypeScript）は、drizzle-kit と同じ方法（tsx の CommonJS ローダー）で読み込む（4. 設計判断を参照）。
 - 内部で呼ぶ `drizzle-kit generate --custom` にも同じ `--config` を渡す。
   スキーマの場所と出力先を drizzle-kit と食い違わせないため、`--schema` / `--out` で個別に指定するオプションは設けない。
+- drizzle-kit は `npx` ではなく、プロジェクトにインストールされているものを直接実行する（`npx` は未インストール時にダウンロードしてしまうため）。
+- 未知のオプションや値のないオプションはエラーにする。
 
 **状態管理**
 
@@ -123,6 +128,7 @@ drizzle-kit migrate
 | 出力は drizzle-kit のカスタムマイグレーションに書き込む | drizzle-kit の journal と整合し、`drizzle-kit migrate` でそのまま適用できる | 独自のマイグレーション管理 |
 | テーブルコメントのキーに `Symbol.for` を使う | 定義 API と CLI でモジュールのインスタンスが別になってもキーが一致する | モジュールローカルの `Symbol()` |
 | 開発は TypeScript 7 で行い、Lint / Formatter は Biome を使う | Biome は TypeScript の JS API に依存せず TypeScript 7 と併用できる。利用者には JS と型定義だけを配布するため、利用者の TypeScript のバージョンは制限しない | TypeScript 6 + ESLint（typescript-eslint）+ Prettier: typescript-eslint が TypeScript 6.0 までしか対応していない |
+| 設定ファイルとスキーマは drizzle-kit と同じく tsx の CommonJS ローダー（`tsx/cjs/api` の `register`）と `require` で読み込む | drizzle-kit と同じ読み込み方なので、drizzle-kit が読み込めるスキーマ（拡張子なしの相対 import、tsconfig の paths、`export default` / `module.exports` の設定ファイルなど）はそのまま読み込める。ES module / CommonJS どちらのプロジェクトでも、スキーマと本ライブラリが同じ drizzle-orm（CommonJS 版）を使うため `.comment()` が効く。tsx は drizzle-kit の依存でもあるため、通常は重複しない | tsx の ESM ローダーで `import`: CommonJS のプロジェクトではスキーマが CommonJS 版、本ライブラリが ESM 版の drizzle-orm を使い、`.comment()` が効かない。Node.js の型除去: 拡張子なしの相対 import を解決できない。jiti: drizzle-kit と読み込み方が異なり挙動差が出うる |
 | ビルドは tsdown を使い、ESM のみを出力する。対応 Node.js は 22 以上 | 型定義を出力でき、`exports` と `bin` をまとめてビルドできる。Node.js 22 以上なら CommonJS からも ESM を `require` できる | esbuild（型定義を出力できない）、tsup（後継が tsdown） |
 
 ## 5. 前提・制約
@@ -132,6 +138,9 @@ drizzle-kit migrate
   - drizzle-orm のメジャーバージョンアップ（v1 など）で内部構造が変わると動かなくなる可能性がある。
 - **drizzle-orm は peerDependencies にする必要がある**
   - `.comment()` は `ColumnBuilder.prototype` に追加するため、利用者のプロジェクトと本ライブラリで drizzle-orm が別インスタンスになると、利用者側のビルダーに `.comment()` が生えない。
+- **CLI の動作環境**
+  - Yarn PnP では drizzle-kit の実行ファイルが zip 内のパスになるため、`yarn run` 経由（PnP ローダーが有効な状態）でのみ動く。
+  - `schema` の glob 展開は drizzle-kit（glob）と異なるライブラリ（tinyglobby）で行うため、Windows のバックスラッシュ区切りのパスなど、細かな挙動が異なる可能性がある。
 - **同じ回の生成の中での削除と作り直しは検出できない**
   - 状態は生成のたびに比較するため、1回の `drizzle-kit generate` の中でテーブル/カラムが作り直される（DROP と CREATE になる）と、
     コメントが変わっていなければ差分なしとなり、作り直したテーブル/カラムにコメントが付かない。
@@ -157,6 +166,4 @@ drizzle-kit migrate
   他の候補は `drizzle-db-comments`、`@onozaty/drizzle-db-comments-generator`。
   `drizzle-comments` は v1 の SQLcommenter と紛らわしいので避ける。
 - **drizzle-orm v1 への対応方針**: v1 は rc（1.0.0-rc.4）まで進んでいる。0.x と v1 のどちらを対象にするか、両対応にするか。
-- **TypeScript ファイルの読み込み方法**: CLI は設定ファイルとスキーマ（いずれも TypeScript）を実行時に import する必要がある。
-  利用者に tsx などでの実行を求めるか、jiti などのローダーを内蔵するか。drizzle-kit 自身の読み込み方法も確認する。
 - **対応範囲**: MySQL 対応、prisma 版にあるオプション（`targets`, `ignorePattern`, `ignoreCommentPattern`, `commentRemovePattern`, `commentTransformScript`, enum の detailed 形式）をどこまで入れるか。

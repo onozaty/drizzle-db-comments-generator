@@ -165,6 +165,13 @@ settings:
 importers:
 
   .:
+    dependencies:
+      tinyglobby:
+        specifier: ^0.2.17
+        version: 0.2.17
+      tsx:
+        specifier: ^4.21.0
+        version: 4.23.15
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.15

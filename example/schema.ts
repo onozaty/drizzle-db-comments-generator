@@ -1,7 +1,9 @@
 import { pgTableWithComment } from "drizzle-db-comments-generator";
-import { integer, pgEnum, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { integer, serial, text, timestamp } from "drizzle-orm/pg-core";
+// Extensionless relative import, to check that schemas are loaded the same way as drizzle-kit
+import { productType } from "./enums";
 
-export const productType = pgEnum("product_type", ["BOOK", "TOY", "FASHION"]);
+export { productType };
 
 export const customers = pgTableWithComment("customers", "顧客", {
   customerId: serial("customer_id").primaryKey().comment("顧客ID"),

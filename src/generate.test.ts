@@ -60,10 +60,19 @@ describe("generate", () => {
     const saved = buildState([{ users: withName }]);
     fs.writeFileSync(path.join(outDir, "comments-latest.json"), JSON.stringify(saved));
     // Dropping the column needs no comment statement, but has to be recorded in the state
-    generateMigration([{ users: withoutName }], { outDir, migrationName: "update_comments" });
+    generateMigration([{ users: withoutName }], {
+      outDir,
+      migrationName: "update_comments",
+      configPath: "drizzle.config.ts",
+    });
 
     // Act
-    const result = generateMigration([{ users: withName }], { outDir, migrationName: "update_comments", dryRun: true });
+    const result = generateMigration([{ users: withName }], {
+      outDir,
+      migrationName: "update_comments",
+      configPath: "drizzle.config.ts",
+      dryRun: true,
+    });
 
     // Assert
     expect(result).toEqual({

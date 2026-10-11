@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readState, writeState } from "./migration";
+import { readState, resolveDrizzleKitBin, writeState } from "./migration";
 import type { CommentsState } from "./state";
 
 describe("readState", () => {
@@ -85,5 +85,27 @@ describe("writeState", () => {
 
     // Assert
     expect(readState(outDir)).toEqual(state);
+  });
+});
+
+describe("resolveDrizzleKitBin", () => {
+  it("returns the CLI script of the drizzle-kit installed in the project", () => {
+    // Act
+    const bin = resolveDrizzleKitBin(process.cwd());
+
+    // Assert
+    expect(bin).toBe(path.join(fs.realpathSync("node_modules/drizzle-kit"), "bin.cjs"));
+  });
+
+  it("throws an error when drizzle-kit is not installed", () => {
+    // Arrange
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "drizzle-db-comments-"));
+
+    // Act & Assert
+    try {
+      expect(() => resolveDrizzleKitBin(cwd)).toThrow("drizzle-kit is not installed in the project");
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });
