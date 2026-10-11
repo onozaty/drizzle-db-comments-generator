@@ -10,7 +10,7 @@
 - [x] 開発ツールを決める（ビルドツール、Lint / Formatter）
 - [x] `package.json`（`packageManager` で pnpm を固定）/ `tsconfig.json` / ビルド / vitest のセットアップ
 - [x] プロトタイプの移植（定義 API を `exports`、CLI を `bin` に分ける）。テスト追加時に vitest の `passWithNoTests` を外す
-- [ ] DevContainer の PostgreSQL を使った動作確認手順を整える
+- [x] DevContainer の PostgreSQL を使った動作確認手順を整える
 - [ ] `CLAUDE.md` の作成（開発コマンド、design.md / plan.md の参照、plan.md の更新ルール）
 
 ## フェーズ2: 不具合修正・改善

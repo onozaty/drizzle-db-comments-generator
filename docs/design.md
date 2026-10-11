@@ -119,6 +119,8 @@ drizzle-kit migrate
 
 ## 6. 動作確認状況
 
+現在の動作確認手順は [development.md](development.md) の「DB を使った動作確認」を参照。
+
 プロトタイプ（PostgreSQL 16、drizzle-orm 0.45.4、drizzle-kit 0.31.11）で、手動で以下を確認済み。
 
 - 初回の全件出力と、migrate による DB への反映（`col_description` / `obj_description` で確認）
