@@ -72,6 +72,7 @@ drizzle-kit migrate
 
 - 前回生成時の状態を `<out>/comments-latest.json` に保存し、次回はその状態との差分だけを出力する。
 - 状態のキーはテーブルの完全修飾名（`"schema"."table"`、スキーマ省略時は `"table"`）。
+  キーの形式は見直す予定（7. 未決事項の「状態ファイルのキーの形式」）。
 
 **差分のルール**
 
@@ -135,5 +136,9 @@ drizzle-kit migrate
 - **drizzle-orm v1 への対応方針**: v1 は rc（1.0.0-rc.4）まで進んでいる。0.x と v1 のどちらを対象にするか、両対応にするか。
 - **TypeScript ファイルの読み込み方法**: CLI は設定ファイルとスキーマ（いずれも TypeScript）を実行時に import する必要がある。
   利用者に tsx などでの実行を求めるか、jiti などのローダーを内蔵するか。drizzle-kit 自身の読み込み方法も確認する。
+- **状態ファイルのキーの形式**: 現在のキーは PostgreSQL の引用符付き識別子（`"schema"."table"`）で、SQL にもそのまま埋め込んでいる。
+  MySQL は識別子をバッククォートで囲み、スキーマの概念もないため、このキーは使えない。状態ファイルは利用者のリポジトリに保存されるので、
+  公開後に形式を変えると既存の状態ファイルの変換が必要になる。公開前に、DB の種類に依存しない形（引用符なし、またはスキーマとテーブルを分けた構造）に決め、
+  引用符は SQL 生成時に付ける。
 - **`public` スキーマの扱い**: `pgSchema("public")` で定義した場合と、スキーマを省略した場合で状態のキーを揃えるか。
 - **対応範囲**: MySQL 対応、prisma 版にあるオプション（`targets`, `ignorePattern`, `ignoreCommentPattern`, `commentRemovePattern`, `commentTransformScript`, enum の detailed 形式）をどこまで入れるか。
