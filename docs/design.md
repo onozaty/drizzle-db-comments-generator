@@ -139,6 +139,7 @@ drizzle-kit migrate
 | 開発は TypeScript 7 で行い、Lint / Formatter は Biome を使う | Biome は TypeScript の JS API に依存せず TypeScript 7 と併用できる。利用者には JS と型定義だけを配布するため、利用者の TypeScript のバージョンは制限しない | TypeScript 6 + ESLint（typescript-eslint）+ Prettier: typescript-eslint が TypeScript 6.0 までしか対応していない |
 | 設定ファイルとスキーマは drizzle-kit と同じく tsx の CommonJS ローダー（`tsx/cjs/api` の `register`）と `require` で読み込む | drizzle-kit と同じ読み込み方なので、drizzle-kit が読み込めるスキーマ（拡張子なしの相対 import、tsconfig の paths、`export default` / `module.exports` の設定ファイルなど）はそのまま読み込める。ES module / CommonJS どちらのプロジェクトでも、スキーマと CLI が同じ drizzle-orm（CommonJS 版）を使う。tsx は drizzle-kit の依存でもあるため、通常は重複しない | tsx の ESM ローダーで `import`: CommonJS のプロジェクトではスキーマと CLI で drizzle-orm が別インスタンスになる（drizzle-orm はインスタンスをまたいで判定できる作りだが、依存しない方が安全）。Node.js の型除去: 拡張子なしの相対 import を解決できない。jiti: drizzle-kit と読み込み方が異なり挙動差が出うる |
 | カラム名の `casing` 変換は drizzle-orm の `CasingCache`（`drizzle-orm/casing`）の `getColumnCasing` で行う | drizzle-orm がクエリ生成で使う公開 API で、drizzle-kit と同じ規則（名前を省略したカラムだけを変換する）。変換規則を自前で持たずに済む。drizzle-kit の結果（`drizzle-kit/api` の `generateDrizzleJson`）とテーブル名・カラム名が一致することをテストで確認している | `toSnakeCase` / `toCamelCase` を使って自前で判定する |
+| 初回リリースは drizzle-orm 0.x（0.45）と drizzle-kit 0.31 に対応する。v1 の正式リリース後に、v1 だけに対応する新しいメジャーバージョンを出す | v1 は rc で、正式リリースまでに変わる可能性があるため、正式版で確かめてから対応する。v1 は `casing` の仕組みなどが 0.x と大きく異なり、両対応にするとコードとテストに分岐が残り続ける。本ライブラリのメジャーバージョンと drizzle のバージョンを対応させると、利用者がどの版を使えばよいかが分かりやすい | 0.x と v1 の両対応: 分岐が残り、rc の変更に追従し続ける必要がある。v1 のみ: 利用者の多くがまだ 0.x |
 | ビルドは tsdown を使う。対応 Node.js は 22 以上 | 型定義を出力でき、`exports` と `bin` をまとめてビルドできる | esbuild（型定義を出力できない）、tsup（後継が tsdown） |
 | ライブラリは ESM と CommonJS の両方を出力し（`exports` の `import` / `require` で切り替え、型定義も `.d.mts` / `.d.cts`）、CLI は CommonJS で出力する | CommonJS のプロジェクトでも確実に使えるようにする: CommonJS から ESM を `require` できるのは Node.js 22.12 以上で、22.0〜22.11 では読み込めない。CommonJS 用の型定義（`.d.cts`）も提供できる。CLI は drizzle-kit と同じく、読み込むスキーマと同じ CommonJS 版の drizzle-orm を共有するため CommonJS にする | ESM のみ: Node.js 22.0〜22.11 の CommonJS のプロジェクトで読み込めない |
 
@@ -180,10 +181,25 @@ drizzle-kit migrate
 - コールバック形式のカラム定義、第3引数（index）、`comment` という名前のカラム、`pgSchema("auth")`
 - 型チェック: TS 5.9 / TS 7.0 × moduleResolution `bundler` / `nodenext`。`$inferSelect` / `$inferInsert`、notNull の維持、メソッドチェーン
 
-## 7. 未決事項
+## 7. drizzle-orm / drizzle-kit v1 との違い（v1 対応時の資料）
+
+1.0.0-rc.4 で調べた結果。v1 対応版を作るときに、正式版で改めて確認する。
+
+| 項目 | 0.x | v1（rc.4） | v1 対応で必要なこと |
+|---|---|---|---|
+| カラム定義のクラス | `PgColumnBuilder` は `ColumnBuilder` を継承する | `PgColumnBuilder` は `ColumnBuilder` を継承しない | `withComment` のカラム定義の判定を `PgColumnBuilder` などで行う |
+| コメントの保存先 | ビルダーの `config` がビルド後のカラムに引き継がれる | 同じ | なし |
+| `is()` / `getTableConfig` / enum の情報 | - | 同じように使える | なし |
+| `casing` | drizzle-kit の設定ファイルの `casing` で、名前を省略したカラムを変換する（`CasingCache`） | 設定ファイルの `casing` はなくなり、テーブル定義時に指定する（`snakeCase.table(...)`、`pgTableWithCasing` など）。`column.name` は変換済み。`CasingCache` はなくなった | `column.name` をそのまま使い、設定ファイルの `casing` は読まない |
+| `drizzle-kit generate --custom` の出力 | `<out>/<番号>_<名前>.sql` と journal | `<out>/<日時>_<名前>/migration.sql` と `snapshot.json`（フォルダごと） | 再帰的に探しているため、現状のままで新しいファイルを特定できる |
+| `--> statement-breakpoint` と migrate | - | 同じように動く | なし |
+| drizzle-kit の実行ファイル | `bin.cjs` | 同じ | なし |
+| drizzle-kit の API | `drizzle-kit/api` の `generateDrizzleJson(imports, prevId, schemaFilters, casing)` | `drizzle-kit/api-postgres` の `generateDrizzleJson(imports, prevId, schemaFilters)`（非同期、`casing` なし） | drizzle-kit との一致を確認するテストを書き換える |
+| 公開 API の型（`withComment`） | - | `bundler` / `nodenext` で型チェックが通る | なし |
+
+## 8. 未決事項
 
 - **パッケージ名**: 第一候補は `drizzle-db-comments-generator`（prisma 版と揃える）。
   他の候補は `drizzle-db-comments`、`@onozaty/drizzle-db-comments-generator`。
   `drizzle-comments` は v1 の SQLcommenter と紛らわしいので避ける。
-- **drizzle-orm v1 への対応方針**: v1 は rc（1.0.0-rc.4）まで進んでいる。0.x と v1 のどちらを対象にするか、両対応にするか。
 - **対応範囲**: MySQL 対応、prisma 版にあるオプション（`targets`, `ignorePattern`, `ignoreCommentPattern`, `commentRemovePattern`, `commentTransformScript`, enum の detailed 形式）をどこまで入れるか。

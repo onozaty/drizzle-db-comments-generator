@@ -36,7 +36,7 @@
 ## フェーズ4: 対応範囲の拡大
 
 - [x] `.comment()` が本ライブラリの読み込み前に呼ばれると失敗する問題（import の削除・読み込み順）への対応として、`.comment()` を使わない API を検討する（`withComment(target, comment)` に置き換えた）
-- [ ] drizzle-orm v1 への対応方針を決めて、動作確認する
+- [x] drizzle-orm v1 への対応方針を決めて、動作確認する（初回リリースは 0.x のみ。v1 の正式リリース後に v1 対応版を出す。design.md の 4 と 7）
 - [ ] prisma 版にあるオプションのうち、初回リリースに入れるものを決めて実装する
 
 ## フェーズ5: 公開
@@ -45,3 +45,7 @@
 - [ ] README の作成
 - [ ] CI（型チェック、Lint、テスト、`test:types`、PostgreSQL を用意して `test:db`）
 - [ ] npm 公開
+
+## 初回リリース後
+
+- [ ] drizzle-orm / drizzle-kit v1 の正式リリース後に、v1 だけに対応する新しいメジャーバージョンを出す（design.md の 7 を正式版で確認する）
