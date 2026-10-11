@@ -1,0 +1,63 @@
+{
+  "name": "drizzle-db-comments-generator",
+  "version": "0.0.0",
+  "description": "Generate database comments from Drizzle ORM schema",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "drizzle-db-comments-generator": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "pnpm run lint && pnpm run typecheck",
+    "test": "vitest run",
+    "test:cov": "vitest run --coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/onozaty/drizzle-db-comments-generator.git"
+  },
+  "keywords": [
+    "drizzle",
+    "drizzle-orm",
+    "drizzle-kit",
+    "postgresql",
+    "comment"
+  ],
+  "author": "onozaty",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/onozaty/drizzle-db-comments-generator/issues"
+  },
+  "homepage": "https://github.com/onozaty/drizzle-db-comments-generator#readme",
+  "engines": {
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "drizzle-kit": "^0.31.0",
+    "drizzle-orm": "^0.45.0"
+  },
+  "packageManager": "pnpm@12.10.1+sha512.ba40a37eb1a370d60fea8c4cf1d364c13bcccef518e98ad2bcee954f539d38da37458e58261a3fa55e06523450ea0ffff9f497b135be41f2c15c1642bacace6c",
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "^5.0.3",
+    "drizzle-kit": "^0.31.11",
+    "drizzle-orm": "^0.45.4",
+    "tsdown": "^0.23.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

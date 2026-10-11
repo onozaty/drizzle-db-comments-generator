@@ -103,6 +103,8 @@ drizzle-kit migrate
 | 差分は状態ファイル（`comments-latest.json`）で管理する | prisma 版と同じ方式。DB に接続せずに差分を出せる | DB から現在のコメントを読み取る案 |
 | 出力は drizzle-kit のカスタムマイグレーションに書き込む | drizzle-kit の journal と整合し、`drizzle-kit migrate` でそのまま適用できる | 独自のマイグレーション管理 |
 | テーブルコメントのキーに `Symbol.for` を使う | 定義 API と CLI でモジュールのインスタンスが別になってもキーが一致する | モジュールローカルの `Symbol()` |
+| 開発は TypeScript 7 で行い、Lint / Formatter は Biome を使う | Biome は TypeScript の JS API に依存せず TypeScript 7 と併用できる。利用者には JS と型定義だけを配布するため、利用者の TypeScript のバージョンは制限しない | TypeScript 6 + ESLint（typescript-eslint）+ Prettier: typescript-eslint が TypeScript 6.0 までしか対応していない |
+| ビルドは tsdown を使い、ESM のみを出力する。対応 Node.js は 22 以上 | 型定義を出力でき、`exports` と `bin` をまとめてビルドできる。Node.js 22 以上なら CommonJS からも ESM を `require` できる | esbuild（型定義を出力できない）、tsup（後継が tsdown） |
 
 ## 5. 前提・制約
 
@@ -134,5 +136,4 @@ drizzle-kit migrate
 - **TypeScript ファイルの読み込み方法**: CLI は設定ファイルとスキーマ（いずれも TypeScript）を実行時に import する必要がある。
   利用者に tsx などでの実行を求めるか、jiti などのローダーを内蔵するか。drizzle-kit 自身の読み込み方法も確認する。
 - **`public` スキーマの扱い**: `pgSchema("public")` で定義した場合と、スキーマを省略した場合で状態のキーを揃えるか。
-- **開発ツール**: ビルドツール（tsdown / tsup など）、Lint / Formatter。
 - **対応範囲**: MySQL 対応、prisma 版にあるオプション（`targets`, `ignorePattern`, `ignoreCommentPattern`, `commentRemovePattern`, `commentTransformScript`, enum の detailed 形式）をどこまで入れるか。

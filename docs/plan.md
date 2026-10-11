@@ -7,9 +7,9 @@
 
 ## フェーズ1: プロジェクト基盤
 
-- [ ] 開発ツールを決める（ビルドツール、Lint / Formatter）→ design.md の未決事項
-- [ ] `package.json`（`packageManager` で pnpm を固定）/ `tsconfig.json` / ビルド / vitest のセットアップ
-- [ ] プロトタイプの移植（定義 API を `exports`、CLI を `bin` に分ける）
+- [x] 開発ツールを決める（ビルドツール、Lint / Formatter）
+- [x] `package.json`（`packageManager` で pnpm を固定）/ `tsconfig.json` / ビルド / vitest のセットアップ
+- [ ] プロトタイプの移植（定義 API を `exports`、CLI を `bin` に分ける）。テスト追加時に vitest の `passWithNoTests` を外す
 - [ ] DevContainer の PostgreSQL を使った動作確認手順を整える
 - [ ] `CLAUDE.md` の作成（開発コマンド、design.md / plan.md の参照、plan.md の更新ルール）
 
@@ -28,6 +28,7 @@
 
 - [ ] 定義 API のユニットテスト（テーブル/カラムコメントの保持、型）
 - [ ] 差分生成のユニットテスト（追加・変更・削除、テーブル/カラムの消失、エスケープ、enum）
+- [ ] ビルドした型定義を TypeScript 5.x / 6 / 7 で型チェックし、利用者側の対応バージョンを確認する
 - [ ] PostgreSQL を使った結合テスト（生成 → migrate → `col_description` / `obj_description` で確認）
 
 ## フェーズ4: 対応範囲の拡大
