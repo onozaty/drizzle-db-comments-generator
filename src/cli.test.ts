@@ -78,6 +78,31 @@ describe("cli", () => {
     expect(result.stdout).toContain(`COMMENT ON COLUMN "users"."status" IS 'Status';`);
   });
 
+  it("names columns by the casing in the config", () => {
+    // Arrange
+    fs.writeFileSync(path.join(cwd, "package.json"), JSON.stringify({ name: "project" }));
+    fs.writeFileSync(
+      path.join(cwd, "src/schema.ts"),
+      `
+import { text } from "drizzle-orm/pg-core";
+import { pgTableWithComment } from "drizzle-db-comments-generator";
+
+export const users = pgTableWithComment("users", "Users", { fullName: text().comment("Full name") });
+`,
+    );
+    fs.writeFileSync(
+      path.join(cwd, "drizzle.config.ts"),
+      CONFIG.replace(`out: "./drizzle"`, `out: "./drizzle", casing: "snake_case"`),
+    );
+
+    // Act
+    const result = runCli("--dry-run");
+
+    // Assert
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain(`COMMENT ON COLUMN "users"."full_name" IS 'Full name';`);
+  });
+
   it("fails with the usage for an unknown option", () => {
     // Arrange
     fs.writeFileSync(path.join(cwd, "package.json"), JSON.stringify({ name: "project" }));

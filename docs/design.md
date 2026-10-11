@@ -67,6 +67,7 @@ drizzle-kit migrate
   - `schema` / `out` の相対パスは、drizzle-kit と同じく設定ファイルの場所ではなくカレントディレクトリを基準にする。
   - `out` を省略した場合は drizzle-kit と同じ `drizzle` とする。
   - `dialect` が `postgresql` 以外の場合はエラーにする。
+  - `casing`（`snake_case` / `camelCase`）を読み、名前を省略して定義したカラムの DB 上の名前を drizzle-kit と同じく変換する。
 - 設定ファイルとスキーマ（TypeScript）は、drizzle-kit と同じ方法（tsx の CommonJS ローダー）で読み込む（4. 設計判断を参照）。
 - 内部で呼ぶ `drizzle-kit generate --custom` にも同じ `--config` を渡す。
   スキーマの場所と出力先を drizzle-kit と食い違わせないため、`--schema` / `--out` で個別に指定するオプションは設けない。
@@ -129,6 +130,7 @@ drizzle-kit migrate
 | テーブルコメントのキーに `Symbol.for` を使う | 定義 API と CLI でモジュールのインスタンスが別になってもキーが一致する | モジュールローカルの `Symbol()` |
 | 開発は TypeScript 7 で行い、Lint / Formatter は Biome を使う | Biome は TypeScript の JS API に依存せず TypeScript 7 と併用できる。利用者には JS と型定義だけを配布するため、利用者の TypeScript のバージョンは制限しない | TypeScript 6 + ESLint（typescript-eslint）+ Prettier: typescript-eslint が TypeScript 6.0 までしか対応していない |
 | 設定ファイルとスキーマは drizzle-kit と同じく tsx の CommonJS ローダー（`tsx/cjs/api` の `register`）と `require` で読み込む | drizzle-kit と同じ読み込み方なので、drizzle-kit が読み込めるスキーマ（拡張子なしの相対 import、tsconfig の paths、`export default` / `module.exports` の設定ファイルなど）はそのまま読み込める。ES module / CommonJS どちらのプロジェクトでも、スキーマと本ライブラリが同じ drizzle-orm（CommonJS 版）を使うため `.comment()` が効く。tsx は drizzle-kit の依存でもあるため、通常は重複しない | tsx の ESM ローダーで `import`: CommonJS のプロジェクトではスキーマが CommonJS 版、本ライブラリが ESM 版の drizzle-orm を使い、`.comment()` が効かない。Node.js の型除去: 拡張子なしの相対 import を解決できない。jiti: drizzle-kit と読み込み方が異なり挙動差が出うる |
+| カラム名の `casing` 変換は drizzle-orm の `CasingCache`（`drizzle-orm/casing`）の `getColumnCasing` で行う | drizzle-orm がクエリ生成で使う公開 API で、drizzle-kit と同じ規則（名前を省略したカラムだけを変換する）。変換規則を自前で持たずに済む。drizzle-kit の結果（`drizzle-kit/api` の `generateDrizzleJson`）とテーブル名・カラム名が一致することをテストで確認している | `toSnakeCase` / `toCamelCase` を使って自前で判定する |
 | ビルドは tsdown を使い、ESM のみを出力する。対応 Node.js は 22 以上 | 型定義を出力でき、`exports` と `bin` をまとめてビルドできる。Node.js 22 以上なら CommonJS からも ESM を `require` できる | esbuild（型定義を出力できない）、tsup（後継が tsdown） |
 
 ## 5. 前提・制約
@@ -141,6 +143,10 @@ drizzle-kit migrate
 - **CLI の動作環境**
   - Yarn PnP では drizzle-kit の実行ファイルが zip 内のパスになるため、`yarn run` 経由（PnP ローダーが有効な状態）でのみ動く。
   - `schema` の glob 展開は drizzle-kit（glob）と異なるライブラリ（tinyglobby）で行うため、Windows のバックスラッシュ区切りのパスなど、細かな挙動が異なる可能性がある。
+- **名前の変更とコメントの削除を同じ回の生成で行うと、古いコメントが残る**
+  - 状態は DB 上の名前で記録するため、テーブル/カラムの名前の変更（`casing` の変更を含む）は「旧名の削除と新名の追加」として扱う。
+    drizzle-kit が RENAME を選んだ場合、PostgreSQL ではコメントが引き継がれるため、同じ回にコメントを削除しても `IS NULL` が出ず、古いコメントが残る。
+  - `casing` の変更は多くのカラムの名前を一度に変えるため、特に起きやすい。名前の変更とコメントの削除は別々の回に分けて生成する。
 - **同じ回の生成の中での削除と作り直しは検出できない**
   - 状態は生成のたびに比較するため、1回の `drizzle-kit generate` の中でテーブル/カラムが作り直される（DROP と CREATE になる）と、
     コメントが変わっていなければ差分なしとなり、作り直したテーブル/カラムにコメントが付かない。

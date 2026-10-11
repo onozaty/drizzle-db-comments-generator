@@ -1,4 +1,5 @@
-import { is } from "drizzle-orm";
+import { type Casing, is } from "drizzle-orm";
+import { CasingCache } from "drizzle-orm/casing";
 import { getTableConfig, PgTable } from "drizzle-orm/pg-core";
 import { getColumnComment, getTableComment } from "./comment";
 import { GeneratorError } from "./errors";
@@ -23,7 +24,11 @@ export type CommentsState = {
   tables: Record<string, TableState>;
 };
 
+export type { Casing };
+
 export type BuildStateOptions = {
+  /** Converts the names of columns defined without names, the same as drizzle-kit does. */
+  casing?: Casing;
   /** Appends `enum: name(value, ...)` to the comments of enum columns. */
   includeEnum?: boolean;
 };
@@ -42,6 +47,8 @@ export function stateKey(schema: string | undefined, table: string): string {
 export function buildState(modules: Record<string, unknown>[], options: BuildStateOptions = {}): CommentsState {
   const state = emptyState();
   const sources = new Map<string, PgTable>();
+  // Resolves column names the same way as drizzle-orm, which drizzle-kit follows when creating columns
+  const casing = new CasingCache(options.casing);
   for (const mod of modules) {
     for (const value of Object.values(mod)) {
       if (!is(value, PgTable)) continue;
@@ -67,7 +74,7 @@ export function buildState(modules: Record<string, unknown>[], options: BuildSta
           const line = `enum: ${enumInfo.enumName}(${enumInfo.enumValues.join(", ")})`;
           comment = comment ? `${comment}\n${line}` : line;
         }
-        table.columns[column.name] = comment;
+        table.columns[casing.getColumnCasing(column)] = comment;
       }
       state.tables[key] = table;
     }

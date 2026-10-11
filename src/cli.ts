@@ -45,6 +45,7 @@ async function main(): Promise<void> {
     configPath: config.configPath,
     migrationName: values.name ?? "update_comments",
     includeEnum: values.enum,
+    casing: config.casing,
     dryRun: values["dry-run"],
   });
   switch (result.status) {

@@ -4,6 +4,7 @@ import path from "node:path";
 import { globSync } from "tinyglobby";
 import { register } from "tsx/cjs/api";
 import { GeneratorError } from "./errors";
+import type { Casing } from "./state";
 
 // Same candidates and order as drizzle-kit
 const DEFAULT_CONFIG_FILES = ["drizzle.config.ts", "drizzle.config.js", "drizzle.config.json"];
@@ -16,6 +17,7 @@ export type ResolvedConfig = {
   schemaFiles: string[];
   /** Absolute path of the migrations folder. */
   outDir: string;
+  casing?: Casing;
 };
 
 /** Returns the config file to use: the given one, or the first default one that exists. */
@@ -41,7 +43,7 @@ export function loadConfig(configPath: string | undefined, cwd: string = process
   if (typeof config !== "object" || config === null) {
     throw new GeneratorError(`Invalid config file: ${file}`);
   }
-  const { dialect, schema, out } = config as Record<string, unknown>;
+  const { dialect, schema, out, casing } = config as Record<string, unknown>;
   if (dialect !== "postgresql") {
     throw new GeneratorError(`Unsupported dialect "${dialect}" in ${file}. Only "postgresql" is supported.`);
   }
@@ -52,11 +54,15 @@ export function loadConfig(configPath: string | undefined, cwd: string = process
   if (out !== undefined && typeof out !== "string") {
     throw new GeneratorError(`"out" must be a string in ${file}`);
   }
+  if (casing !== undefined && casing !== "snake_case" && casing !== "camelCase") {
+    throw new GeneratorError(`"casing" must be "snake_case" or "camelCase" in ${file}`);
+  }
 
   return {
     configPath: file,
     schemaFiles: resolveSchemaFiles(schema as string | string[], cwd),
     outDir: path.resolve(cwd, out ?? "drizzle"),
+    casing,
   };
 }
 

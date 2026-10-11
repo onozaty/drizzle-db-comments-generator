@@ -121,6 +121,22 @@ describe("buildState", () => {
     expect(Object.keys(state.tables)).toEqual(["users"]);
   });
 
+  describe("casing", () => {
+    const users = pgTable("users", { userId: serial().primaryKey(), fullName: text("full_name") });
+
+    it.each([
+      { casing: undefined, expected: ["userId", "full_name"] },
+      { casing: "snake_case" as const, expected: ["user_id", "full_name"] },
+      { casing: "camelCase" as const, expected: ["userId", "full_name"] },
+    ])("names columns without names by casing $casing", ({ casing, expected }) => {
+      // Act
+      const state = buildState([{ users }], { casing });
+
+      // Assert
+      expect(Object.keys(state.tables.users?.columns ?? {})).toEqual(expected);
+    });
+  });
+
   describe("includeEnum", () => {
     const status = pgEnum("status", ["ACTIVE", "INACTIVE"]);
 

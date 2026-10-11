@@ -2,13 +2,14 @@ import { isDeepStrictEqual } from "node:util";
 import { diff } from "./diff";
 import { readState, writeMigration, writeState } from "./migration";
 import { toPostgresSql } from "./postgres";
-import { buildState, type CommentsState } from "./state";
+import { buildState, type Casing, type CommentsState } from "./state";
 
 export type GenerateOptions = {
   outDir: string;
   migrationName: string;
   configPath: string;
   includeEnum?: boolean;
+  casing?: Casing;
   dryRun?: boolean;
 };
 
@@ -20,7 +21,7 @@ export type GenerateResult =
 /** Generates a comment migration from the schema modules, based on the state saved by the previous generation. */
 export function generate(modules: Record<string, unknown>[], options: GenerateOptions): GenerateResult {
   const prev = readState(options.outDir);
-  const next = buildState(modules, { includeEnum: options.includeEnum });
+  const next = buildState(modules, { includeEnum: options.includeEnum, casing: options.casing });
   const changes = diff(prev, next);
   if (changes.length === 0) {
     // Dropped tables/columns need no statements, but must be recorded so that re-adding them is detected as a change

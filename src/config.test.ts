@@ -101,6 +101,21 @@ describe("loadConfig", () => {
     expect(config.outDir).toBe(path.join(cwd, "drizzle"));
   });
 
+  it.each([{ casing: undefined }, { casing: "snake_case" }, { casing: "camelCase" }])(
+    "reads casing $casing",
+    ({ casing }) => {
+      // Arrange
+      writeFiles("schema.ts");
+      writeJsonConfig({ dialect: "postgresql", schema: "schema.ts", casing });
+
+      // Act
+      const config = loadConfig(undefined, cwd);
+
+      // Assert
+      expect(config.casing).toBe(casing);
+    },
+  );
+
   it.each([
     {
       name: "the dialect is not postgresql",
@@ -113,6 +128,11 @@ describe("loadConfig", () => {
       name: "out is not a string",
       config: { dialect: "postgresql", schema: "schema.ts", out: 1 },
       error: /"out" must be/,
+    },
+    {
+      name: "casing is not supported",
+      config: { dialect: "postgresql", schema: "schema.ts", casing: "kebab-case" },
+      error: /"casing" must be/,
     },
   ])("throws an error when $name", ({ config, error }) => {
     // Arrange
