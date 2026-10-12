@@ -159,6 +159,7 @@ drizzle-kit migrate
 | 初回リリースは drizzle-orm 0.x（0.45）と drizzle-kit 0.31 に対応する。v1 の正式リリース後に、v1 だけに対応する新しいメジャーバージョンを出す | v1 は rc で、正式リリースまでに変わる可能性があるため、正式版で確かめてから対応する。v1 は `casing` の仕組みなどが 0.x と大きく異なり、両対応にするとコードとテストに分岐が残り続ける。本ライブラリのメジャーバージョンと drizzle のバージョンを対応させると、利用者がどの版を使えばよいかが分かりやすい | 0.x と v1 の両対応: 分岐が残り、rc の変更に追従し続ける必要がある。v1 のみ: 利用者の多くがまだ 0.x |
 | prisma 版にあるコメントの絞り込み・変換のオプション（`targets`, `ignorePattern`, `ignoreCommentPattern`, `commentRemovePattern`, `commentTransformScript`, enum の detailed 形式）は採用しない | prisma 版はドキュメントコメント（`///`）を DB コメントに流用するため、DB に入れたくない内容の絞り込みや変換が必要だった。本ライブラリでは `withComment` で DB コメントとして書いたものだけが出力されるので、付けたくないものは書かなければよく、変換が必要ならコードで変換した文字列を渡せばよい。drizzle の enum には値ごとのコメントがないため、enum は `--append-enum-values` で足りる | prisma 版と同じオプションを用意する |
 | パッケージ名は `@onozaty/drizzle-db-comments-generator`（スコープ付き）、CLI のコマンド名は `drizzle-db-comments-generator` とする | prisma 版（`@onozaty/prisma-db-comments-generator`）と揃え、同じ作者の姉妹ライブラリと分かるようにする。スコープ内の名前は作者だけが使えるため、似た名前のパッケージとの混同や名前の先取りの心配がない | スコープなしの `drizzle-db-comments-generator` / `drizzle-db-comments`。`drizzle-comments` は v1 の SQLcommenter と紛らわしい |
+| 初回リリースは PostgreSQL のみに対応し、MySQL は検証してから後で対応する | MySQL はカラムのコメントだけを変える構文がなく、`ALTER TABLE ... MODIFY COLUMN` でカラムの定義全体を書き直す必要がある。prisma 版のように `information_schema` から定義を組み立て直すと、式の既定値（`DEFAULT (now())` と `EXTRA` の `DEFAULT_GENERATED`）、カラムごとの文字コード・照合順序、生成列などで元の定義と一致しないおそれがあり、コメントを付けるだけのつもりでカラムの定義が変わってしまう危険がある。状態ファイルや差分の計算は DB の種類に依存しない作りにしてあるので、後から SQL の生成を追加できる | prisma 版と同じストアドプロシージャ方式で「実験的」として対応する: 上の危険が残る。drizzle のスキーマからカラムの定義を組み立てる: drizzle-kit の DDL と完全に一致させる必要があり、作業量も壊れたときの危険も大きい |
 | ビルドは tsdown を使う。対応 Node.js は 22 以上 | 型定義を出力でき、`exports` と `bin` をまとめてビルドできる | esbuild（型定義を出力できない）、tsup（後継が tsdown） |
 | ライブラリは ESM と CommonJS の両方を出力し（`exports` の `import` / `require` で切り替え、型定義も `.d.mts` / `.d.cts`）、CLI は CommonJS で出力する | CommonJS のプロジェクトでも確実に使えるようにする: CommonJS から ESM を `require` できるのは Node.js 22.12 以上で、22.0〜22.11 では読み込めない。CommonJS 用の型定義（`.d.cts`）も提供できる。CLI は drizzle-kit と同じく、読み込むスキーマと同じ CommonJS 版の drizzle-orm を共有するため CommonJS にする | ESM のみ: Node.js 22.0〜22.11 の CommonJS のプロジェクトで読み込めない |
 
@@ -218,4 +219,4 @@ drizzle-kit migrate
 
 ## 8. 未決事項
 
-- **MySQL 対応**: 対応するか、いつ対応するか。
+なし。
