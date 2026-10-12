@@ -42,7 +42,7 @@
 ## フェーズ5: 公開
 
 - [x] パッケージ名の決定（`@onozaty/drizzle-db-comments-generator`）。合わせて、プロトタイプ由来の名前（SQL のヘッダー、Symbol キー）を `drizzle-db-comments-generator` に揃える
-- [ ] README の作成
+- [x] README の作成
 - [ ] CI（型チェック、Lint、テスト、`test:types`、PostgreSQL を用意して `test:db`）
 - [ ] npm 公開
 
