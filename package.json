@@ -17,7 +17,7 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "drizzle-db-comments-generator": "./dist/cli.cjs"
+    "drizzle-db-comments-generator": "dist/cli.cjs"
   },
   "files": [
     "dist"
