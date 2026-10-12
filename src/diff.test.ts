@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { diff } from "./diff";
-import { type CommentsState, stateKey, type TableState } from "./state";
+import { type CommentsState, type EnumState, stateKey, type TableState } from "./state";
 
 const state = (...tables: TableState[]): CommentsState => ({
   version: 1,
   tables: Object.fromEntries(tables.map((t) => [stateKey(t.schema, t.table), t])),
+  enums: {},
+});
+
+const withEnums = (base: CommentsState, ...enums: EnumState[]): CommentsState => ({
+  ...base,
+  enums: Object.fromEntries(enums.map((e) => [stateKey(e.schema, e.name), e])),
 });
 
 describe("diff", () => {
@@ -17,8 +23,8 @@ describe("diff", () => {
 
     // Assert
     expect(changes).toEqual([
-      { table: "users", comment: "Users" },
-      { table: "users", column: "id", comment: "User ID" },
+      { target: "table", table: "users", comment: "Users" },
+      { target: "column", table: "users", column: "id", comment: "User ID" },
     ]);
   });
 
@@ -36,8 +42,8 @@ describe("diff", () => {
 
     // Assert
     expect(changes).toEqual([
-      { table: "users", column: "name", comment: "Full name" },
-      { table: "users", column: "email", comment: "Email" },
+      { target: "column", table: "users", column: "name", comment: "Full name" },
+      { target: "column", table: "users", column: "email", comment: "Email" },
     ]);
   });
 
@@ -51,8 +57,8 @@ describe("diff", () => {
 
     // Assert
     expect(changes).toEqual([
-      { table: "users", comment: null },
-      { table: "users", column: "id", comment: null },
+      { target: "table", table: "users", comment: null },
+      { target: "column", table: "users", column: "id", comment: null },
     ]);
   });
 
@@ -98,7 +104,7 @@ describe("diff", () => {
     const changes = diff(state(), next);
 
     // Assert
-    expect(changes).toEqual([{ schema: "auth", table: "users", comment: "Users" }]);
+    expect(changes).toEqual([{ target: "table", schema: "auth", table: "users", comment: "Users" }]);
   });
 
   it("returns nothing for a new table without comments", () => {
@@ -139,8 +145,94 @@ describe("diff", () => {
 
     // Assert
     expect(changes).toEqual([
-      { table: "constructor", comment: "Table" },
-      { table: "constructor", column: "valueOf", comment: "Column" },
+      { target: "table", table: "constructor", comment: "Table" },
+      { target: "column", table: "constructor", column: "valueOf", comment: "Column" },
     ]);
+  });
+
+  describe("enums", () => {
+    it("returns added, changed and removed enum comments", () => {
+      // Arrange
+      const prev = withEnums(
+        state(),
+        { name: "status", comment: "Status", values: ["A"] },
+        { name: "color", comment: "Color", values: ["A"] },
+        { name: "size", comment: null, values: ["A"] },
+      );
+      const next = withEnums(
+        state(),
+        { name: "status", comment: "User status", values: ["A"] },
+        { name: "color", comment: null, values: ["A"] },
+        { name: "size", comment: "Size", values: ["A"] },
+      );
+
+      // Act
+      const changes = diff(prev, next);
+
+      // Assert
+      expect(changes).toEqual([
+        { target: "enum", name: "status", comment: "User status" },
+        { target: "enum", name: "color", comment: null },
+        { target: "enum", name: "size", comment: "Size" },
+      ]);
+    });
+
+    it("ignores enums dropped since the previous state and new enums without comments", () => {
+      // Arrange
+      const prev = withEnums(state(), { name: "status", comment: "Status", values: ["A"] });
+      const next = withEnums(state(), { name: "color", comment: null, values: ["A"] });
+
+      // Act
+      const changes = diff(prev, next);
+
+      // Assert
+      expect(changes).toEqual([]);
+    });
+
+    it.each([
+      { name: "removed", values: ["A"] },
+      { name: "added", values: ["A", "B", "C"] },
+    ])("returns the comment again when values are $name, since drizzle-kit may recreate the type", ({ values }) => {
+      // Arrange
+      const prev = withEnums(state(), { name: "status", comment: "Status", values: ["A", "B"] });
+      const next = withEnums(state(), { name: "status", comment: "Status", values });
+
+      // Act
+      const changes = diff(prev, next);
+
+      // Assert
+      expect(changes).toEqual([{ target: "enum", name: "status", comment: "Status" }]);
+    });
+
+    it("returns nothing when values change on an enum without a comment", () => {
+      // Arrange
+      const prev = withEnums(state(), { name: "status", comment: null, values: ["A", "B"] });
+      const next = withEnums(state(), { name: "status", comment: null, values: ["A"] });
+
+      // Act
+      const changes = diff(prev, next);
+
+      // Assert
+      expect(changes).toEqual([]);
+    });
+
+    it("returns enum comments before table comments, and keeps the schema", () => {
+      // Arrange
+      const next = withEnums(state({ table: "users", comment: "Users", columns: {} }), {
+        schema: "shop",
+        name: "status",
+        comment: "Status",
+        values: ["A"],
+      });
+
+      // Act
+      const changes = diff(state(), next);
+
+      // Assert
+      expect(changes).toEqual([
+        { target: "enum", schema: "shop", name: "status", comment: "Status" },
+        { target: "table", table: "users", comment: "Users" },
+      ]);
+    });
   });
 });

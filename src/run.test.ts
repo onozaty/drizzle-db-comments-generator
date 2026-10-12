@@ -57,7 +57,7 @@ describe("run", () => {
     expect(logs).toEqual([expect.stringContaining(`COMMENT ON COLUMN "users"."id" IS 'User ID';`)]);
   });
 
-  it("appends enum values to comments with --enum", () => {
+  it("appends enum values to comments with --append-enum-values", () => {
     // Arrange
     writeConfig();
     writeSchema(`
@@ -65,7 +65,7 @@ const status = pgEnum("status", ["ACTIVE"]);
 export const users = pgTable("users", { status: withComment(status("status"), "Status") });`);
 
     // Act
-    const code = run(["--dry-run", "--enum"], { cwd, output });
+    const code = run(["--dry-run", "--append-enum-values"], { cwd, output });
 
     // Assert
     expect(code).toBe(0);
@@ -105,8 +105,8 @@ export const posts = pgTable("posts", { id: serial("id") });`);
     // Assert
     expect(code).toBe(0);
     expect(logs).toEqual([
-      "No comment changes (updated the state of dropped tables/columns)",
-      "No comment changes (updated the state of dropped tables/columns)",
+      "No comment changes (updated the state of the schema)",
+      "No comment changes (updated the state of the schema)",
     ]);
   });
 

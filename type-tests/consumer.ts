@@ -71,12 +71,25 @@ assertType<Equal<typeof authUsers._.schema, "auth">>();
 const prefixed = withComment(pgTableCreator((name) => `app_${name}`)("users", { id: serial("id") }), "Users");
 assertType<Equal<typeof prefixed._.name, "users">>();
 
+// Enums keep their types and stay usable for columns
+const plainColor = pgEnum("color", { Red: "red", Blue: "blue" } as const);
+const color = withComment(plainColor, "Color");
+assertType<Equal<typeof color, typeof plainColor>>();
+const colored = pgTable("colored", { status: withComment(status("status"), "Status"), color: color("color") });
+const commentedStatus = withComment(status, "Status");
+assertType<Equal<typeof commentedStatus, typeof status>>();
+assertType<
+  Equal<typeof colored.$inferSelect, { status: "ACTIVE" | "INACTIVE" | null; color: "red" | "blue" | null }>
+>();
+
 // Wrong usages are type errors
 // @ts-expect-error the comment must be a string
 withComment(pgTable("invalid", { id: serial("id") }), 1);
 // @ts-expect-error the comment must be a string
 withComment(text("invalid"), 1);
-// @ts-expect-error only tables and columns take comments
+// @ts-expect-error the comment must be a string
+withComment(status, 1);
+// @ts-expect-error only tables, column definitions and enums take comments
 withComment({ name: "invalid" }, "Comment");
 // @ts-expect-error a table function is not a table
 withComment(pgTable, "Comment");

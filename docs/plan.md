@@ -38,6 +38,7 @@
 - [x] `.comment()` が本ライブラリの読み込み前に呼ばれると失敗する問題（import の削除・読み込み順）への対応として、`.comment()` を使わない API を検討する（`withComment(target, comment)` に置き換えた）
 - [x] drizzle-orm v1 への対応方針を決めて、動作確認する（初回リリースは 0.x のみ。v1 の正式リリース後に v1 対応版を出す。design.md の 4 と 7）
 - [x] prisma 版にあるオプションのうち、初回リリースに入れるものを決めて実装する（いずれも採用しない。design.md の 4）
+- [x] enum の型へのコメント（`COMMENT ON TYPE`）に対応する。あわせて CLI の `--enum` を `--append-enum-values` に改名する
 
 ## フェーズ5: 公開
 

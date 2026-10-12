@@ -13,7 +13,7 @@ drizzle-kit のカスタムマイグレーションとして生成するライ�
 ## 2. 利用イメージ
 
 ```ts
-import { pgSchema, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { pgEnum, pgSchema, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { withComment } from "@onozaty/drizzle-db-comments-generator";
 
 export const customers = withComment(
@@ -27,6 +27,9 @@ export const customers = withComment(
 // pgSchema / pgTableCreator のテーブルも同じ
 export const auth = pgSchema("auth");
 export const users = withComment(auth.table("users", { ... }), "ユーザー");
+
+// enum の型にも付けられる
+export const status = withComment(pgEnum("status", ["ACTIVE", "INACTIVE"]), "状態");
 
 // 共通のカラム定義にも付けられる
 export const timestamps = {
@@ -46,16 +49,19 @@ drizzle-kit migrate
 
 公開する API は `withComment(target, comment)` だけ。
 
-- `target` がテーブルならテーブルコメント、カラムならカラムコメントを設定し、`target` をそのまま返す。
+- `target` がテーブルならテーブルコメント、カラムならカラムコメント、enum なら enum の型のコメントを設定し、`target` をそのまま返す。
   - 戻り値の型は `target` と同じ（`$inferSelect` / `$inferInsert`、`notNull` などがそのまま使える）。
   - テーブルは、どのテーブル関数（`pgTable` / `pgSchema("x").table` / `pgTableCreator(...)`）で作ったものでもよい。
   - カラムは、メソッドチェーンのどこで包んでもよい（`withComment(text("x"), "...").notNull()` も可）。
   - カラムとして受け付けるのはカラムの定義（`text("name")` などのカラムビルダー）で、作成済みのテーブルのカラム（`users.id`）は受け付けない。
-  - テーブルでもカラムの定義でもないものを渡すと、型エラー・実行時エラー（`TypeError`）になる。
+  - enum は `pgEnum`（値の配列・オブジェクトのどちらの形でもよい）と `pgSchema("x").enum` で作ったもの。包んだ後もそのままカラムの定義に使える。
+    PostgreSQL は enum の値ごとのコメントに対応していないため、値ごとのコメントは扱わない。
+  - テーブル・カラムの定義・enum のいずれでもないものを渡すと、型エラー・実行時エラー（`TypeError`）になる。
 - コメントは渡されたオブジェクトに直接書き込む。
   - テーブル: `Symbol.for("drizzle-db-comments-generator:TableComment")` をキーとしてテーブルオブジェクトに保持する。
   - カラム: `Symbol.for("drizzle-db-comments-generator:ColumnComment")` をキーとしてビルダーの `config` に保存する（`config` はビルド後のカラムにそのまま引き継がれる）。
-  - どちらも Symbol をキーにする。テーブルではカラム名（利用者が付けたプロパティ名）と、カラムの `config` では drizzle-orm が将来追加しうるプロパティ（`comment` など）と衝突しないようにするため。
+  - enum: `Symbol.for("drizzle-db-comments-generator:EnumComment")` をキーとして enum のオブジェクトに保持する。
+  - いずれも Symbol をキーにする。テーブルではカラム名（利用者が付けたプロパティ名）と、カラムの `config` では drizzle-orm が将来追加しうるプロパティ（`comment` など）と衝突しないようにするため。
   - そのため、複数のテーブルで使い回しているカラム定義を包むと、そのカラムを使うすべてのテーブルでコメントが変わる。
 
 ### 3.2 CLI（コメント用マイグレーション生成）
@@ -66,7 +72,7 @@ drizzle-kit migrate
 |---|---|---|
 | `--config <file>` | `drizzle.config.ts` | drizzle-kit の設定ファイル |
 | `--name <name>` | `update_comments` | マイグレーション名 |
-| `--enum` | なし | enum カラムのコメントに `enum: 名前(値, ...)` を追記する |
+| `--append-enum-values` | なし | enum のカラムのコメントに `enum: 名前(値, ...)` を追記する（enum の型のコメントとは別） |
 | `--dry-run` | なし | SQL を表示するだけでファイルを作らない |
 
 **設定**
@@ -87,10 +93,11 @@ drizzle-kit migrate
 **状態管理**
 
 - 前回生成時の状態を `<out>/comments-latest.json` に保存し、次回はその状態との差分だけを出力する。
-- スキーマ上の **すべてのテーブルとカラム** を記録する。コメントがないものは `null` とし、状態からテーブル/カラムの存在も分かるようにする。
-- キー（`schema.table`、スキーマなしは `table`）は検索にだけ使い、SQL はスキーマ名・テーブル名・カラム名の各項目から組み立てる。
+- スキーマ上の **すべてのテーブルとカラム、export された enum** を記録する。コメントがないものは `null` とし、状態から存在も分かるようにする。
+  enum は drizzle-kit と同じく、スキーマのファイルから export されたものだけを対象にする（drizzle-kit は export された enum だけを作る）。
+- キー（テーブルは `schema.table`、enum は `schema.name`、スキーマなしはスキーマを付けない）は検索にだけ使い、SQL はスキーマ名・テーブル名・カラム名・enum 名の各項目から組み立てる。
   キーに DB 固有の引用符を含めないため、将来 MySQL など他の DB に対応しても形式を変えずに済む。
-- キーが重複する別々のテーブル（例: `pgTable("a.b")` と `pgSchema("a").table("b")`）がある場合はエラーにする。同じテーブルを複数回 export しているだけなら問題ない。
+- キーが重複する別々のテーブル（例: `pgTable("a.b")` と `pgSchema("a").table("b")`）や enum がある場合はエラーにする。同じものを複数回 export しているだけなら問題ない。
 - 形式の変更に備えて `version` を持たせる。未知の形式（`version` が異なる・ない）や、中身が壊れた状態ファイルを読み込んだ場合はエラーにする。
 - コメントの変更がなくても、テーブル/カラムの削除などで状態が変わった場合は状態ファイルだけを更新する（マイグレーションは作らない）。
   更新しないと、削除したカラムを同じコメントで作り直したときに差分なしと判定され、コメントが付かない。
@@ -102,6 +109,10 @@ drizzle-kit migrate
   "tables": {
     "auth.users": { "schema": "auth", "table": "users", "comment": "Users", "columns": { "id": "User ID", "name": null } },
     "customers": { "table": "customers", "comment": "顧客", "columns": { "customer_id": "顧客ID", "created_at": null } }
+  },
+  "enums": {
+    "status": { "name": "status", "comment": "状態", "values": ["ACTIVE", "INACTIVE"] },
+    "shop.color": { "schema": "shop", "name": "color", "comment": null, "values": ["RED"] }
   }
 }
 ```
@@ -111,20 +122,25 @@ drizzle-kit migrate
 | ケース | 出力 |
 |---|---|
 | コメントの追加・変更 | `COMMENT ON ... IS '<コメント>'` |
-| コメントの削除（テーブル/カラムはスキーマに残っている） | `COMMENT ON ... IS NULL` |
-| テーブル/カラム自体がスキーマから消えた | 何もしない（DDL の削除でコメントも消えるため） |
+| コメントの削除（テーブル/カラム/enum はスキーマに残っている） | `COMMENT ON ... IS NULL` |
+| テーブル/カラム/enum 自体がスキーマから消えた | 何もしない（DDL の削除でコメントも消えるため） |
 
-- 現在のスキーマにあるテーブル/カラムだけを比較する。テーブルのコメントをすべて外しても、テーブルが残っていれば `IS NULL` を出力する。
+- 現在のスキーマにあるテーブル/カラム/enum だけを比較する。テーブルのコメントをすべて外しても、テーブルが残っていれば `IS NULL` を出力する。
 - 消えたカラムに `COMMENT ON COLUMN ... IS NULL` を出すと、カラムが存在せず migrate が失敗するため、消えたものは比較しない。
-- 差分の計算は DB に依存しない変更点（スキーマ・テーブル・カラム・コメント）として求め、SQL の生成（PostgreSQL）とは分ける。
+- enum の値が変わった場合は、コメントが変わっていなくても（コメントがあれば）`COMMENT ON TYPE` を出し直す。
+  drizzle-kit は enum から値を削除するとき型を作り直し（`DROP TYPE` → `CREATE TYPE`）、型のコメントも消えるため。値の追加（`ADD VALUE`）ではコメントは残るが、同じコメントを設定し直すだけで害はないので、値の変化で一律に出し直す。
+  このため、状態ファイルには enum の値も記録する。
+- 差分の計算は DB に依存しない変更点（テーブル・カラム・enum の別と、スキーマ・名前・コメント）として求め、SQL の生成（PostgreSQL）とは分ける。
 
 **出力**
 
 - 変更がなければファイルを作らない。
 - `drizzle-kit generate --custom --name=<name>` で空のマイグレーションを作らせ、そこへ SQL を書き込む（journal が正しく更新される）。
+- テーブル・カラムは `COMMENT ON TABLE` / `COMMENT ON COLUMN`、enum は `COMMENT ON TYPE` で出力する。
+  enum を先に、テーブルを後に出力する（DDL で型を先に作るのと同じ順番）。
 - 文の区切りに `--> statement-breakpoint` を入れる。
 - 文字列リテラルの `'` は `''` に、識別子の `"` は `""` にエスケープする。
-- スキーマなしのテーブルはスキーマを付けずに書く（drizzle-kit が出力する DDL と同じ）。
+- スキーマなしのテーブル・enum はスキーマを付けずに書く（drizzle-kit が出力する DDL と同じ）。
   drizzle-orm では `pgSchema("public")` がエラーになり、public スキーマのテーブルは必ず `pgTable` で定義されるため、public の表記揺れは起きない。
 - 必ず通常の `drizzle-kit generate` の後に実行する（DDL より後にコメントを適用するため）。
 
@@ -141,7 +157,7 @@ drizzle-kit migrate
 | 設定ファイルとスキーマは drizzle-kit と同じく tsx の CommonJS ローダー（`tsx/cjs/api` の `register`）と `require` で読み込む | drizzle-kit と同じ読み込み方なので、drizzle-kit が読み込めるスキーマ（拡張子なしの相対 import、tsconfig の paths、`export default` / `module.exports` の設定ファイルなど）はそのまま読み込める。ES module / CommonJS どちらのプロジェクトでも、スキーマと CLI が同じ drizzle-orm（CommonJS 版）を使う。tsx は drizzle-kit の依存でもあるため、通常は重複しない | tsx の ESM ローダーで `import`: CommonJS のプロジェクトではスキーマと CLI で drizzle-orm が別インスタンスになる（drizzle-orm はインスタンスをまたいで判定できる作りだが、依存しない方が安全）。Node.js の型除去: 拡張子なしの相対 import を解決できない。jiti: drizzle-kit と読み込み方が異なり挙動差が出うる |
 | カラム名の `casing` 変換は drizzle-orm の `CasingCache`（`drizzle-orm/casing`）の `getColumnCasing` で行う | drizzle-orm がクエリ生成で使う公開 API で、drizzle-kit と同じ規則（名前を省略したカラムだけを変換する）。変換規則を自前で持たずに済む。drizzle-kit の結果（`drizzle-kit/api` の `generateDrizzleJson`）とテーブル名・カラム名が一致することをテストで確認している | `toSnakeCase` / `toCamelCase` を使って自前で判定する |
 | 初回リリースは drizzle-orm 0.x（0.45）と drizzle-kit 0.31 に対応する。v1 の正式リリース後に、v1 だけに対応する新しいメジャーバージョンを出す | v1 は rc で、正式リリースまでに変わる可能性があるため、正式版で確かめてから対応する。v1 は `casing` の仕組みなどが 0.x と大きく異なり、両対応にするとコードとテストに分岐が残り続ける。本ライブラリのメジャーバージョンと drizzle のバージョンを対応させると、利用者がどの版を使えばよいかが分かりやすい | 0.x と v1 の両対応: 分岐が残り、rc の変更に追従し続ける必要がある。v1 のみ: 利用者の多くがまだ 0.x |
-| prisma 版にあるコメントの絞り込み・変換のオプション（`targets`, `ignorePattern`, `ignoreCommentPattern`, `commentRemovePattern`, `commentTransformScript`, enum の detailed 形式）は採用しない | prisma 版はドキュメントコメント（`///`）を DB コメントに流用するため、DB に入れたくない内容の絞り込みや変換が必要だった。本ライブラリでは `withComment` で DB コメントとして書いたものだけが出力されるので、付けたくないものは書かなければよく、変換が必要ならコードで変換した文字列を渡せばよい。drizzle の enum には値ごとのコメントがないため、enum は `--enum` で足りる | prisma 版と同じオプションを用意する |
+| prisma 版にあるコメントの絞り込み・変換のオプション（`targets`, `ignorePattern`, `ignoreCommentPattern`, `commentRemovePattern`, `commentTransformScript`, enum の detailed 形式）は採用しない | prisma 版はドキュメントコメント（`///`）を DB コメントに流用するため、DB に入れたくない内容の絞り込みや変換が必要だった。本ライブラリでは `withComment` で DB コメントとして書いたものだけが出力されるので、付けたくないものは書かなければよく、変換が必要ならコードで変換した文字列を渡せばよい。drizzle の enum には値ごとのコメントがないため、enum は `--append-enum-values` で足りる | prisma 版と同じオプションを用意する |
 | パッケージ名は `@onozaty/drizzle-db-comments-generator`（スコープ付き）、CLI のコマンド名は `drizzle-db-comments-generator` とする | prisma 版（`@onozaty/prisma-db-comments-generator`）と揃え、同じ作者の姉妹ライブラリと分かるようにする。スコープ内の名前は作者だけが使えるため、似た名前のパッケージとの混同や名前の先取りの心配がない | スコープなしの `drizzle-db-comments-generator` / `drizzle-db-comments`。`drizzle-comments` は v1 の SQLcommenter と紛らわしい |
 | ビルドは tsdown を使う。対応 Node.js は 22 以上 | 型定義を出力でき、`exports` と `bin` をまとめてビルドできる | esbuild（型定義を出力できない）、tsup（後継が tsdown） |
 | ライブラリは ESM と CommonJS の両方を出力し（`exports` の `import` / `require` で切り替え、型定義も `.d.mts` / `.d.cts`）、CLI は CommonJS で出力する | CommonJS のプロジェクトでも確実に使えるようにする: CommonJS から ESM を `require` できるのは Node.js 22.12 以上で、22.0〜22.11 では読み込めない。CommonJS 用の型定義（`.d.cts`）も提供できる。CLI は drizzle-kit と同じく、読み込むスキーマと同じ CommonJS 版の drizzle-orm を共有するため CommonJS にする | ESM のみ: Node.js 22.0〜22.11 の CommonJS のプロジェクトで読み込めない |
@@ -152,12 +168,12 @@ drizzle-kit migrate
   - ビルダーの `config` オブジェクトが、ビルド後のカラムの `config` にそのまま引き継がれる。
   - drizzle-orm のメジャーバージョンアップ（v1 など）で内部構造が変わると動かなくなる可能性がある。
 - **drizzle-orm は peerDependencies にする**
-  - 本ライブラリは利用者のテーブル・カラムを drizzle-orm の API（`is`、`getTableConfig`、`CasingCache`）で扱うため、利用者と同じ drizzle-orm を使う。
+  - 本ライブラリは利用者のテーブル・カラム・enum を drizzle-orm の API（`is`、`isPgEnum`、`getTableConfig`、`CasingCache`）で扱うため、利用者と同じ drizzle-orm を使う。
 - **CLI の動作環境**
   - Yarn PnP では drizzle-kit の実行ファイルが zip 内のパスになるため、`yarn run` 経由（PnP ローダーが有効な状態）でのみ動く。
   - `schema` の glob 展開は drizzle-kit（glob）と異なるライブラリ（tinyglobby）で行うため、Windows のバックスラッシュ区切りのパスなど、細かな挙動が異なる可能性がある。
 - **名前の変更とコメントの削除を同じ回の生成で行うと、古いコメントが残る**
-  - 状態は DB 上の名前で記録するため、テーブル/カラムの名前の変更（`casing` の変更を含む）は「旧名の削除と新名の追加」として扱う。
+  - 状態は DB 上の名前で記録するため、テーブル/カラム/enum の名前の変更（`casing` の変更、スキーマの移動を含む）は「旧名の削除と新名の追加」として扱う。
     drizzle-kit が RENAME を選んだ場合、PostgreSQL ではコメントが引き継がれるため、同じ回にコメントを削除しても `IS NULL` が出ず、古いコメントが残る。
   - `casing` の変更は多くのカラムの名前を一度に変えるため、特に起きやすい。名前の変更とコメントの削除は別々の回に分けて生成する。
 - **同じ回の生成の中での削除と作り直しは検出できない**

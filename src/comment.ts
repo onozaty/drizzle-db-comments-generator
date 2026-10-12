@@ -14,21 +14,26 @@
  * (query building or drizzle-kit's diff detection).
  */
 import { type Column, ColumnBuilder, type ColumnBuilderBase, is, Table } from "drizzle-orm";
+import { isPgEnum, type PgEnum, type PgEnumObject } from "drizzle-orm/pg-core";
 
 // Symbols so that the keys never collide with columns of tables or with properties drizzle-orm may add to column configs.
 // Symbol.for so that the keys match even if this module is loaded more than once (ES modules and CommonJS).
 const TableComment = Symbol.for("drizzle-db-comments-generator:TableComment");
 const ColumnComment = Symbol.for("drizzle-db-comments-generator:ColumnComment");
+const EnumComment = Symbol.for("drizzle-db-comments-generator:EnumComment");
 
 /**
- * Sets the database comment of a table or a column definition, and returns it as is.
- * Works with tables of any table function (`pgTable`, `pgSchema("x").table`, `pgTableCreator(...)`)
- * and with any column definition (column builder such as `text("name")`), not with columns of a created table (`users.id`).
+ * Sets the database comment of a table, a column definition or an enum, and returns it as is.
+ * Works with tables of any table function (`pgTable`, `pgSchema("x").table`, `pgTableCreator(...)`),
+ * with any column definition (column builder such as `text("name")`), not with columns of a created table (`users.id`),
+ * and with enums (`pgEnum`, `pgSchema("x").enum`).
  *
  * The comment is written to the given object: a column definition shared by several tables has the same comment in all of them.
  */
 export function withComment<T extends Table>(table: T, comment: string): T;
 export function withComment<T extends ColumnBuilderBase>(column: T, comment: string): T;
+// biome-ignore lint/suspicious/noExplicitAny: enums of any values, which PgEnum<[string, ...string[]]> does not accept
+export function withComment<T extends PgEnum<any> | PgEnumObject<any>>(enumType: T, comment: string): T;
 export function withComment(target: unknown, comment: string): unknown {
   if (is(target, Table)) {
     (target as unknown as Record<symbol, unknown>)[TableComment] = comment;
@@ -39,7 +44,11 @@ export function withComment(target: unknown, comment: string): unknown {
     (target as unknown as { config: Record<symbol, unknown> }).config[ColumnComment] = comment;
     return target;
   }
-  throw new TypeError('withComment() takes a table or a column definition such as text("name")');
+  if (isPgEnum(target)) {
+    (target as unknown as Record<symbol, unknown>)[EnumComment] = comment;
+    return target;
+  }
+  throw new TypeError('withComment() takes a table, a column definition such as text("name") or an enum');
 }
 
 export function getColumnComment(column: Column): string | undefined {
@@ -48,4 +57,8 @@ export function getColumnComment(column: Column): string | undefined {
 
 export function getTableComment(table: Table): string | undefined {
   return (table as unknown as Record<symbol, string | undefined>)[TableComment];
+}
+
+export function getEnumComment(enumType: object): string | undefined {
+  return (enumType as unknown as Record<symbol, string | undefined>)[EnumComment];
 }

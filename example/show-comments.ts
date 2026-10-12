@@ -1,4 +1,4 @@
-/** Shows the table/column comments stored in the database. */
+/** Shows the table/column/enum comments stored in the database. */
 import pg from "pg";
 import { databaseUrl } from "./drizzle.config.ts";
 
@@ -22,6 +22,17 @@ try {
     ORDER BY 1, COALESCE(a.attnum, 0)
   `);
   console.table(rows);
+
+  const { rows: enums } = await client.query<{ enum: string; comment: string | null }>(`
+    SELECT
+      CASE WHEN n.nspname = 'public' THEN t.typname ELSE n.nspname || '.' || t.typname END AS "enum",
+      obj_description(t.oid, 'pg_type') AS "comment"
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typtype = 'e'
+    ORDER BY 1
+  `);
+  console.table(enums);
 } finally {
   await client.end();
 }

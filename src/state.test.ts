@@ -20,6 +20,7 @@ describe("buildState", () => {
     expect(state).toEqual({
       version: 1,
       tables: { users: { schema: undefined, table: "users", comment: "Users", columns: { id: "User ID" } } },
+      enums: {},
     });
   });
 
@@ -127,6 +128,60 @@ describe("buildState", () => {
     expect(Object.keys(state.tables)).toEqual(["users"]);
   });
 
+  describe("enums", () => {
+    it("collects exported enums with or without comments", () => {
+      // Arrange
+      const status = withComment(pgEnum("status", ["ACTIVE"]), "Status");
+      const color = pgEnum("color", { Red: "red" });
+
+      // Act
+      const state = buildState([{ status, color }]);
+
+      // Assert
+      expect(state.enums).toEqual({
+        status: { schema: undefined, name: "status", comment: "Status", values: ["ACTIVE"] },
+        color: { schema: undefined, name: "color", comment: null, values: ["red"] },
+      });
+    });
+
+    it("keys enums in a schema by schema.name and keeps the schema", () => {
+      // Arrange
+      const status = withComment(pgSchema("shop").enum("status", ["ACTIVE"]), "Status");
+
+      // Act
+      const state = buildState([{ status }]);
+
+      // Assert
+      expect(state.enums["shop.status"]).toEqual({
+        schema: "shop",
+        name: "status",
+        comment: "Status",
+        values: ["ACTIVE"],
+      });
+    });
+
+    it("does not collect enums that are not exported", () => {
+      // Arrange
+      const status = withComment(pgEnum("status", ["ACTIVE"]), "Status");
+      const users = pgTable("users", { status: status("status") });
+
+      // Act
+      const state = buildState([{ users }]);
+
+      // Assert
+      expect(state.enums).toEqual({});
+    });
+
+    it("throws an error when different enums map to the same key", () => {
+      // Arrange
+      const first = pgEnum("status", ["A"]);
+      const second = pgEnum("status", ["B"]);
+
+      // Act & Assert
+      expect(() => buildState([{ first }, { second }])).toThrow(`Multiple enums map to the same name "status"`);
+    });
+  });
+
   describe("casing", () => {
     const users = pgTable("users", { userId: serial().primaryKey(), fullName: text("full_name") });
 
@@ -143,7 +198,7 @@ describe("buildState", () => {
     });
   });
 
-  describe("includeEnum", () => {
+  describe("appendEnumValues", () => {
     const status = pgEnum("status", ["ACTIVE", "INACTIVE"]);
 
     it.each([
@@ -163,7 +218,7 @@ describe("buildState", () => {
       const users = pgTable("users", { status: comment ? withComment(column, comment) : column });
 
       // Act
-      const state = buildState([{ users }], { includeEnum: true });
+      const state = buildState([{ users }], { appendEnumValues: true });
 
       // Assert
       expect(state.tables.users?.columns.status).toBe(expected);

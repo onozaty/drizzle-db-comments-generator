@@ -21,7 +21,7 @@ describe("readState", () => {
     const state = readState(outDir);
 
     // Assert
-    expect(state).toEqual({ version: 1, tables: {} });
+    expect(state).toEqual({ version: 1, tables: {}, enums: {} });
   });
 
   it("reads the saved state file", () => {
@@ -29,6 +29,7 @@ describe("readState", () => {
     const saved: CommentsState = {
       version: 1,
       tables: { users: { table: "users", comment: "Users", columns: { id: "User ID" } } },
+      enums: { status: { name: "status", comment: "Status", values: ["ACTIVE"] } },
     };
     fs.writeFileSync(path.join(outDir, "comments-latest.json"), JSON.stringify(saved));
 
@@ -51,8 +52,17 @@ describe("readState", () => {
   });
 
   it.each([
-    { name: "without tables", content: { version: 1 } },
-    { name: "with a table without columns", content: { version: 1, tables: { users: { table: "users" } } } },
+    { name: "without tables", content: { version: 1, enums: {} } },
+    { name: "with a table without columns", content: { version: 1, tables: { users: { table: "users" } }, enums: {} } },
+    { name: "without enums", content: { version: 1, tables: {} } },
+    {
+      name: "with an enum without a name",
+      content: { version: 1, tables: {}, enums: { status: { comment: null, values: [] } } },
+    },
+    {
+      name: "with an enum without values",
+      content: { version: 1, tables: {}, enums: { status: { name: "status", comment: null } } },
+    },
   ])("throws an error for a state file $name", ({ content }) => {
     // Arrange
     fs.writeFileSync(path.join(outDir, "comments-latest.json"), JSON.stringify(content));
@@ -78,6 +88,7 @@ describe("writeState", () => {
     const state: CommentsState = {
       version: 1,
       tables: { "auth.users": { schema: "auth", table: "users", comment: "Users", columns: { id: null } } },
+      enums: { "shop.status": { schema: "shop", name: "status", comment: null, values: ["ACTIVE"] } },
     };
 
     // Act

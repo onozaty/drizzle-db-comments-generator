@@ -43,7 +43,7 @@ DevContainer（`.devcontainer/`）で開発する。
 | ファイル | 内容 |
 |---|---|
 | `example/schema.ts` | 動作確認用のスキーマ。パッケージ名で import するため、実行時はビルド結果（`dist/`）が使われる |
-| `example/enums.ts` | `schema.ts` から拡張子なしの相対パスで import する enum。drizzle-kit と同じ方法でスキーマを読み込めることの確認を兼ねる |
+| `example/enums.ts` | `schema.ts` から拡張子なしの相対パスで import する enum（コメント付き）。drizzle-kit と同じ方法でスキーマを読み込めることの確認を兼ねる |
 | `example/drizzle.config.ts` | drizzle-kit の設定。接続先は環境変数 `EXAMPLE_DATABASE_URL` で変更できる |
 | `example/drizzle/` | 生成されたマイグレーションと状態ファイル（git 管理外） |
 
@@ -57,7 +57,7 @@ DevContainer（`.devcontainer/`）で開発する。
 pnpm run example:reset     # DB とマイグレーションを初期状態に戻す（接続先の public / drizzle スキーマを削除する）
 pnpm run example:generate  # ビルド → drizzle-kit generate → コメント用マイグレーション生成
 pnpm run example:migrate   # マイグレーションを DB に反映
-pnpm run example:show      # DB に入っているテーブル/カラムコメントを表示
+pnpm run example:show      # DB に入っているテーブル/カラム/enum のコメントを表示
 ```
 
 差分の動作を確認するときは、`example/schema.ts` のコメントを変更してから `example:generate` → `example:migrate` → `example:show` を繰り返す。

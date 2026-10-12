@@ -17,7 +17,7 @@ export function readState(outDir: string): CommentsState {
       `Unsupported format of ${statePath} (version: ${state?.version}, expected: ${STATE_VERSION})`,
     );
   }
-  if (!isValidTables(state.tables)) {
+  if (!isValidTables(state.tables) || !isValidEnums(state.enums)) {
     throw new GeneratorError(`Invalid content of ${statePath}. Fix or delete the file.`);
   }
   return state;
@@ -29,6 +29,19 @@ function isValidTables(tables: unknown): boolean {
   return (
     isObject(tables) &&
     Object.values(tables).every((t) => isObject(t) && typeof t.table === "string" && isObject(t.columns))
+  );
+}
+
+function isValidEnums(enums: unknown): boolean {
+  return (
+    isObject(enums) &&
+    Object.values(enums).every(
+      (e) =>
+        isObject(e) &&
+        typeof e.name === "string" &&
+        Array.isArray(e.values) &&
+        e.values.every((v) => typeof v === "string"),
+    )
   );
 }
 

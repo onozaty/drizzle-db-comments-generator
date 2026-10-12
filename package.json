@@ -35,7 +35,7 @@
     "test:cov": "vitest run --coverage",
     "test:types": "pnpm run build && node scripts/test-types.mjs",
     "test:db": "vitest run --config vitest.db.config.ts",
-    "example:generate": "pnpm run build && cd example && drizzle-kit generate && node ../dist/cli.cjs --enum",
+    "example:generate": "pnpm run build && cd example && drizzle-kit generate && node ../dist/cli.cjs --append-enum-values",
     "example:migrate": "cd example && drizzle-kit migrate",
     "example:show": "node example/show-comments.ts",
     "example:reset": "node example/reset.ts"

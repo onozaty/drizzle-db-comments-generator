@@ -9,7 +9,8 @@ import { loadConfig, loadModule } from "./config";
 import { GeneratorError } from "./errors";
 import { generate } from "./generate";
 
-export const USAGE = "Usage: drizzle-db-comments-generator [--config <file>] [--name <name>] [--enum] [--dry-run]";
+export const USAGE =
+  "Usage: drizzle-db-comments-generator [--config <file>] [--name <name>] [--append-enum-values] [--dry-run]";
 
 export type RunOptions = {
   /**
@@ -27,7 +28,7 @@ function parse(args: string[]) {
     options: {
       config: { type: "string" },
       name: { type: "string" },
-      enum: { type: "boolean" },
+      "append-enum-values": { type: "boolean" },
       "dry-run": { type: "boolean" },
     },
     strict: true,
@@ -53,17 +54,13 @@ export function run(args: string[], { cwd = process.cwd(), output = console }: R
       outDir: config.outDir,
       configPath: config.configPath,
       migrationName: values.name ?? "update_comments",
-      includeEnum: values.enum,
+      appendEnumValues: values["append-enum-values"],
       casing: config.casing,
       dryRun: values["dry-run"],
     });
     switch (result.status) {
       case "no-changes":
-        output.log(
-          result.stateUpdated
-            ? "No comment changes (updated the state of dropped tables/columns)"
-            : "No comment changes",
-        );
+        output.log(result.stateUpdated ? "No comment changes (updated the state of the schema)" : "No comment changes");
         break;
       case "dry-run":
         output.log(result.sql);

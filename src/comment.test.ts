@@ -1,6 +1,16 @@
-import { getTableConfig, index, integer, pgSchema, pgTable, pgTableCreator, serial, text } from "drizzle-orm/pg-core";
+import {
+  getTableConfig,
+  index,
+  integer,
+  pgEnum,
+  pgSchema,
+  pgTable,
+  pgTableCreator,
+  serial,
+  text,
+} from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { getColumnComment, getTableComment, withComment } from "./comment";
+import { getColumnComment, getEnumComment, getTableComment, withComment } from "./comment";
 
 describe("withComment", () => {
   describe("tables", () => {
@@ -103,6 +113,35 @@ describe("withComment", () => {
     });
   });
 
+  describe("enums", () => {
+    it.each([
+      { name: "pgEnum with values", create: () => pgEnum("status", ["ACTIVE", "INACTIVE"]) },
+      { name: "pgEnum with an object", create: () => pgEnum("color", { Red: "red" }) },
+      { name: "pgSchema().enum", create: () => pgSchema("shop").enum("status", ["ACTIVE"]) },
+    ])("keeps the comment of an enum created with $name, and returns the same enum", ({ create }) => {
+      // Arrange
+      const enumType = create();
+
+      // Act
+      const result = withComment(enumType, "Enum");
+
+      // Assert
+      expect(result).toBe(enumType);
+      expect(getEnumComment(result)).toBe("Enum");
+    });
+
+    it("keeps the enum usable for columns", () => {
+      // Arrange
+      const status = withComment(pgEnum("status", ["ACTIVE"]), "Status");
+
+      // Act
+      const table = pgTable("users", { status: status("status") });
+
+      // Assert
+      expect(getTableConfig(table).columns[0]?.getSQLType()).toBe("status");
+    });
+  });
+
   it.each([
     { name: "an object", target: {} },
     { name: "null", target: null },
@@ -110,7 +149,7 @@ describe("withComment", () => {
     { name: "a column of a created table", target: pgTable("users", { id: serial("id") }).id },
   ])("throws an error for $name", ({ target }) => {
     // Act & Assert
-    expect(() => withComment(target as never, "Comment")).toThrow("withComment() takes a table or a column definition");
+    expect(() => withComment(target as never, "Comment")).toThrow("withComment() takes a table, a column definition");
   });
 });
 

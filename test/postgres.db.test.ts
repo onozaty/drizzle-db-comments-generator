@@ -107,6 +107,25 @@ async function comments(): Promise<Record<string, string | null>> {
   }
 }
 
+/** Comments of enum types in the database, keyed by `name` (prefixed with the schema except public). */
+async function enumComments(): Promise<Record<string, string | null>> {
+  const client = new pg.Client({ connectionString: databaseUrl() });
+  await client.connect();
+  try {
+    const { rows } = await client.query<{ key: string; comment: string | null }>(`
+      SELECT
+        CASE WHEN n.nspname = 'public' THEN '' ELSE n.nspname || '.' END || t.typname AS key,
+        obj_description(t.oid, 'pg_type') AS comment
+      FROM pg_type t
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE t.typtype = 'e'
+    `);
+    return Object.fromEntries(rows.map((row) => [row.key, row.comment]));
+  } finally {
+    await client.end();
+  }
+}
+
 describe("comments in PostgreSQL", () => {
   it("sets table and column comments", async () => {
     // Arrange
@@ -126,7 +145,7 @@ export const sessions = withComment(auth.table("sessions", {
 `;
 
     // Act
-    apply(schema, "--enum");
+    apply(schema, "--append-enum-values");
 
     // Assert
     expect(await comments()).toEqual({
@@ -255,10 +274,10 @@ export const users = withComment(pgTable("users", { id: withComment(serial("id")
 export const status = pgEnum("status", [${values}]);
 export const users = pgTable("users", { status: withComment(status("status"), "Status") });
 `;
-    apply(schema(`"ACTIVE"`), "--enum");
+    apply(schema(`"ACTIVE"`), "--append-enum-values");
 
     // Act
-    apply(schema(`"ACTIVE", "INACTIVE"`), "--enum");
+    apply(schema(`"ACTIVE", "INACTIVE"`), "--append-enum-values");
 
     // Assert
     expect(await comments()).toEqual({ users: null, "users.status": "Status\nenum: status(ACTIVE, INACTIVE)" });
@@ -290,5 +309,45 @@ export const sessions = withComment(auth.table("sessions", {
       "auth.sessions.token": null,
       "auth.sessions.user_agent": "User agent",
     });
+  });
+
+  it("sets, changes and removes comments of enums", async () => {
+    // Arrange
+    writeConfig();
+    apply(`
+export const status = withComment(pgEnum("status", ["ACTIVE"]), "Status");
+export const shop = pgSchema("shop");
+export const color = withComment(shop.enum("color", ["RED"]), "Color");
+export const size = pgEnum("size", ["S"]);
+export const users = pgTable("users", { status: status("status"), color: color("color"), size: size("size") });
+`);
+
+    // Act
+    apply(`
+export const status = withComment(pgEnum("status", ["ACTIVE"]), "User status");
+export const shop = pgSchema("shop");
+export const color = shop.enum("color", ["RED"]);
+export const size = withComment(pgEnum("size", ["S"]), "Size");
+export const users = pgTable("users", { status: status("status"), color: color("color"), size: size("size") });
+`);
+
+    // Assert
+    expect(await enumComments()).toEqual({ status: "User status", "shop.color": null, size: "Size" });
+  });
+
+  it("keeps the comment of an enum recreated by drizzle-kit to remove values", async () => {
+    // Arrange
+    writeConfig();
+    const schema = (values: string) => `
+export const status = withComment(pgEnum("status", [${values}]), "Status");
+export const users = pgTable("users", { status: status("status") });
+`;
+    apply(schema(`"ACTIVE", "INACTIVE"`));
+
+    // Act
+    apply(schema(`"ACTIVE"`));
+
+    // Assert
+    expect(await enumComments()).toEqual({ status: "Status" });
   });
 });
