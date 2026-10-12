@@ -1,5 +1,9 @@
 # drizzle-db-comments-generator
 
+[![Test](https://github.com/onozaty/drizzle-db-comments-generator/actions/workflows/test.yml/badge.svg)](https://github.com/onozaty/drizzle-db-comments-generator/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/onozaty/drizzle-db-comments-generator/graph/badge.svg)](https://codecov.io/gh/onozaty/drizzle-db-comments-generator)
+[![npm version](https://badge.fury.io/js/@onozaty%2Fdrizzle-db-comments-generator.svg)](https://badge.fury.io/js/@onozaty%2Fdrizzle-db-comments-generator)
+
 Generate database comments from Drizzle schema.
 
 Drizzle does not support table and column comments yet ([drizzle-team/drizzle-orm#886](https://github.com/drizzle-team/drizzle-orm/issues/886)).
