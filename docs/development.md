@@ -62,3 +62,13 @@ pnpm run example:show      # DB に入っているテーブル/カラム/enum �
 
 差分の動作を確認するときは、`example/schema.ts` のコメントを変更してから `example:generate` → `example:migrate` → `example:show` を繰り返す。
 確認が終わったら `example/schema.ts` を元に戻し、`example:reset` で初期状態に戻す。
+
+## リリース
+
+`v1.2.3` の形のタグを push すると、`.github/workflows/publish.yml` がテスト、npm への公開（Trusted Publishing、provenance 付き）、GitHub Release の作成を行う。
+
+1. `package.json` の `version` を更新してコミットし、`main` に push する
+2. CI が通ったことを確認し、バージョンと同じタグを push する（例: `git tag v1.2.3 && git push origin v1.2.3`）
+
+タグと `package.json` の `version` が一致しない場合、ワークフローは公開せずに失敗する。
+公開前には `prepublishOnly` でビルドし直す。
