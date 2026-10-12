@@ -1,6 +1,6 @@
 {
   "name": "@onozaty/drizzle-db-comments-generator",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Generate database comments from Drizzle ORM schema",
   "type": "module",
   "exports": {
